@@ -61,11 +61,11 @@ impl Analysis<Math> for ConstantFold {
     fn make(egraph: &EGraph, enode: &Math) -> Self::Data {
         let x = |i: &Id| egraph[*i].data.as_ref();
         Some(match enode {
-            Math::Constant(c) => (*c),
-            Math::Add([a, b]) => (x(a)? + x(b)?),
-            Math::Sub([a, b]) => (x(a)? - x(b)?),
-            Math::Mul([a, b]) => (x(a)? * x(b)?),
-            Math::Div([a, b]) if *x(b)? != 0 => (x(a)? / x(b)?),
+            Math::Constant(c) => *c,
+            Math::Add([a, b]) => x(a)? + x(b)?,
+            Math::Sub([a, b]) => x(a)? - x(b)?,
+            Math::Mul([a, b]) => x(a)? * x(b)?,
+            Math::Div([a, b]) if *x(b)? != 0 => x(a)? / x(b)?,
             Math::Max([a, b]) => std::cmp::max(*x(a)?, *x(b)?),
             Math::Min([a, b]) => std::cmp::min(*x(a)?, *x(b)?),
             Math::Not(a) => {
@@ -145,16 +145,17 @@ impl Analysis<Math> for ConstantFold {
 
     fn modify(egraph: &mut EGraph, id: Id) {
         let class = &mut egraph[id];
-        if let Some(c) = class.data.clone() {
-            let added = egraph.add(Math::Constant(c.clone()));
-            let (id, _did_something) = egraph.union(id, added);
+        if let Some(c) = class.data {
+            let added = egraph.add(Math::Constant(c));
+            let _ = egraph.union(id, added);
+            let union_id = egraph.find(id);
             // to not prune, comment this out
-            egraph[id].nodes.retain(|n| n.is_leaf());
+            egraph[union_id].nodes.retain(|n| n.is_leaf());
 
             assert!(
-                !egraph[id].nodes.is_empty(),
+                !egraph[union_id].nodes.is_empty(),
                 "empty eclass! {:#?}",
-                egraph[id]
+                egraph[union_id]
             );
             #[cfg(debug_assertions)]
             egraph[id].assert_unique_leaves();
@@ -172,7 +173,7 @@ pub fn is_const_pos(var: &str) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
         // Check if any of the representations of ths constant (nodes inside its eclass) is positive
         egraph[subst[var]].nodes.iter().any(|n| match n {
             Math::Constant(c) => c > &0,
-            _ => return false,
+            _ => false,
         })
     }
 }
@@ -186,7 +187,7 @@ pub fn is_const_neg(var: &str) -> impl Fn(&mut EGraph, Id, &Subst) -> bool {
         //Check if any of the representations of ths constant (nodes inside its eclass) is negative
         egraph[subst[var]].nodes.iter().any(|n| match n {
             Math::Constant(c) => c < &0,
-            _ => return false,
+            _ => false,
         })
     }
 }
@@ -238,9 +239,9 @@ pub fn compare_c0_c1(
                     "%0>" => (*c1 < 0) && (c % c1 == 0),
                     _ => false,
                 },
-                _ => return false,
+                _ => false,
             }),
-            _ => return false,
+            _ => false,
         })
     }
 }
@@ -281,7 +282,7 @@ pub fn filtered_rules(class: &json::JsonValue) -> Result<Vec<Rewrite>, Box<dyn E
     .concat();
     let rules_iter = all_rules.into_iter();
     let rules = rules_iter.filter(|rule| class.contains(rule.name()));
-    return Ok(rules.collect());
+    Ok(rules.collect())
 }
 
 /// takes an class of rules to use then returns the vector of their associated Rewrites
@@ -302,7 +303,7 @@ pub fn rules(ruleset_class: i8) -> Vec<Rewrite> {
     let or_rules = crate::rules::or::or();
     let sub_rules = crate::rules::sub::sub();
 
-    return match ruleset_class {
+    match ruleset_class {
         // Class that only contains arithmetic operations' rules
         0 =>
             [
@@ -329,7 +330,7 @@ pub fn rules(ruleset_class: i8) -> Vec<Rewrite> {
             &or_rules[..],
             &sub_rules[..],
         ].concat()
-    };
+    }
 }
 
 ///Prints the egraph in an SVG file
@@ -370,10 +371,7 @@ pub fn simplify(
 
     //Extract the best expression
     let (_, best_expr) = extractor.find_best(id);
-    println!(
-        "Best Expr: {}",
-        format!("{}", best_expr).bright_green().bold()
-    );
+    println!("Best Expr: {}", best_expr.to_string().bright_green().bold());
 
     let total_time: f64 = runner.iterations.iter().map(|i| i.total_time).sum();
     if report {
@@ -417,25 +415,24 @@ pub fn prove_equiv(
     let start: RecExpr<Math> = start_expression.parse().unwrap();
     let end: Pattern<Math> = end_expressions.parse().unwrap();
     let result: bool;
-    let runner;
     let best_expr_string;
     // Initialize the runner and run it using the ILC contribution.
-    if use_iteration_check {
-        runner = Runner::default()
+    let runner = if use_iteration_check {
+        Runner::default()
             .with_iter_limit(params.0)
             .with_node_limit(params.1)
             .with_time_limit(Duration::from_secs_f64(params.2))
             .with_expr(&start)
-            .run_check_iteration(rules(ruleset_class).iter(), &[end.clone()]);
+            .run_check_iteration(rules(ruleset_class).iter(), &[end.clone()])
     } else {
         // Initialize a simple runner and run it.
-        runner = Runner::default()
+        Runner::default()
             .with_iter_limit(params.0)
             .with_node_limit(params.1)
             .with_time_limit(Duration::from_secs_f64(params.2))
             .with_expr(&start)
-            .run(rules(ruleset_class).iter());
-    }
+            .run(rules(ruleset_class).iter())
+    };
     // Get the ID of the root eclass.
     let id = runner.egraph.find(*runner.roots.last().unwrap());
 
@@ -454,10 +451,7 @@ pub fn prove_equiv(
                 "Could not prove goal:".bright_red().bold(),
                 end.pretty(40),
             );
-            println!(
-                "Best Expr: {}",
-                format!("{}", best_expr).bright_green().bold()
-            );
+            println!("Best Expr: {}", best_expr.to_string().bright_green().bold());
         }
 
         result = false;
@@ -518,10 +512,8 @@ pub fn prove(
     let end_0: Pattern<Math> = "0".parse().unwrap();
     // Set up the goals we will check for.
     let goals = [end_0.clone(), end_1.clone()];
-    let runner: Runner<Math, ConstantFold>;
     let mut result = false;
     let mut proved_goal_index = 0;
-    let id;
     let best_expr;
 
     if report {
@@ -531,24 +523,24 @@ pub fn prove(
         )
     }
     // Initialize the runner and run it using the ILC contribution.
-    if use_iteration_check {
-        runner = Runner::default()
+    let runner: Runner<Math, ConstantFold> = if use_iteration_check {
+        Runner::default()
             .with_iter_limit(params.0)
             .with_node_limit(params.1)
             .with_time_limit(Duration::from_secs_f64(params.2))
             .with_expr(&start)
-            .run_check_iteration(rules(ruleset_class).iter(), &goals);
+            .run_check_iteration(rules(ruleset_class).iter(), &goals)
     } else {
         // Initialize a simple runner and run it.
-        runner = Runner::default()
+        Runner::default()
             .with_iter_limit(params.0)
             .with_node_limit(params.1)
             .with_time_limit(Duration::from_secs_f64(params.2))
             .with_expr(&start)
-            .run(rules(ruleset_class).iter());
-    }
+            .run(rules(ruleset_class).iter())
+    };
     // Get the ID of the root eclass.
-    id = runner.egraph.find(*runner.roots.last().unwrap());
+    let id = runner.egraph.find(*runner.roots.last().unwrap());
 
     // Check if the end expression matches any representation of the root eclass.
     for (goal_index, goal) in goals.iter().enumerate() {
@@ -582,7 +574,7 @@ pub fn prove(
             println!("{}\n", "Could not prove any goal:".bright_red().bold(),);
             println!(
                 "Best Expr: {}",
-                format!("{}", best_exprr).bright_green().bold()
+                best_exprr.to_string().bright_green().bold()
             );
             println!(
                 "{} {}",
@@ -657,7 +649,6 @@ pub fn prove_expression_with_file_classes(
     let mut runner: egg::Runner<Math, ConstantFold>;
     let mut rules: Vec<Rewrite>;
     let mut proved_goal_index = 0;
-    let id;
     let mut best_expr = Some("".to_string());
     let mut proving_class = -1;
     // First iteration of the runner.
@@ -666,7 +657,7 @@ pub fn prove_expression_with_file_classes(
     let goals = [end_0.clone(), end_1.clone()];
     let mut total_time: f64 = 0.0;
 
-    let time_per_class = (params.2 as f64) / (classes.len() as f64);
+    let time_per_class = params.2 / (classes.len() as f64);
 
     // rules = filtered_rules(&classes[0])?;
     let start_t = Instant::now();
@@ -675,7 +666,7 @@ pub fn prove_expression_with_file_classes(
         .with_node_limit(params.1)
         .with_time_limit(Duration::from_secs_f64(time_per_class))
         .with_expr(&start);
-    id = runner.egraph.find(*runner.roots.last().unwrap());
+    let id = runner.egraph.find(*runner.roots.last().unwrap());
     // End first iteration
 
     // Run the runner using the rulesets extracted from the file.
@@ -733,7 +724,7 @@ pub fn prove_expression_with_file_classes(
                 println!("{}\n", "Could not prove any goal:".bright_red().bold(),);
                 println!(
                     "Best Expr: {}",
-                    format!("{}", best_exprr).bright_green().bold()
+                    best_exprr.to_string().bright_green().bold()
                 );
             }
         }
@@ -764,7 +755,7 @@ pub fn prove_expression_with_file_classes(
         "1/0".to_string(),
         result,
         best_expr.unwrap_or_default(),
-        proving_class as i64,
+        proving_class,
         runner.iterations.len(),
         runner.egraph.total_number_of_nodes(),
         runner.iterations.iter().map(|i| i.n_rebuilds).sum(),
@@ -792,14 +783,14 @@ pub fn impossible_conditions(
             let var = vars[0];
             let var1 = vars[1];
             egraph[subst[var]].nodes.iter().any(|n| match n {
-                Math::Symbol(_) => egraph[subst[var1]].nodes.iter().any(|n1| match n1 {
-                    Math::Constant(_) => true,
-                    _ => false,
-                }),
-                Math::Constant(_) => egraph[subst[var1]].nodes.iter().any(|n1| match n1 {
-                    Math::Symbol(_) => true,
-                    _ => false,
-                }),
+                Math::Symbol(_) => egraph[subst[var1]]
+                    .nodes
+                    .iter()
+                    .any(|n1| matches!(n1, Math::Constant(_))),
+                Math::Constant(_) => egraph[subst[var1]]
+                    .nodes
+                    .iter()
+                    .any(|n1| matches!(n1, Math::Symbol(_))),
                 _ => false,
             })
         }
@@ -813,20 +804,20 @@ pub fn impossible_conditions(
                 Math::Symbol(_) => egraph[subst[b]].nodes.iter().any(|n1| match n1 {
                     Math::Constant(vb) => {
                         (*vb != 0)
-                            && egraph[subst[c]].nodes.iter().any(|n2| match n2 {
-                                Math::Constant(_) => true,
-                                _ => false,
-                            })
+                            && egraph[subst[c]]
+                                .nodes
+                                .iter()
+                                .any(|n2| matches!(n2, Math::Constant(_)))
                     }
                     _ => false,
                 }),
                 Math::Constant(va) => {
                     (*va != 0)
                         && egraph[subst[b]].nodes.iter().any(|n1| match n1 {
-                            Math::Symbol(_) => egraph[subst[c]].nodes.iter().any(|n2| match n2 {
-                                Math::Constant(_) => true,
-                                _ => false,
-                            }),
+                            Math::Symbol(_) => egraph[subst[c]]
+                                .nodes
+                                .iter()
+                                .any(|n2| matches!(n2, Math::Constant(_))),
                             _ => false,
                         })
                 }
@@ -862,16 +853,16 @@ pub fn impossible_conditions(
                 Math::Symbol(_) => egraph[subst[var1]].nodes.iter().any(|n1| match n1 {
                     Math::Constant(b) => egraph[subst[var2]].nodes.iter().any(|n2| match n2 {
                         //c.abs() < (b.abs() - 1)
-                        Math::Constant(c) => (!(*c < -(b.abs() - 1))) && (!(*c > b.abs() - 1)),
+                        Math::Constant(c) => *c >= -(b.abs() - 1) && *c < b.abs(),
                         _ => false,
                     }),
                     _ => false,
                 }),
                 Math::Constant(_) => egraph[subst[var1]].nodes.iter().any(|n1| match n1 {
-                    Math::Symbol(_) => egraph[subst[var2]].nodes.iter().any(|n2| match n2 {
-                        Math::Constant(_) => true,
-                        _ => false,
-                    }),
+                    Math::Symbol(_) => egraph[subst[var2]]
+                        .nodes
+                        .iter()
+                        .any(|n2| matches!(n2, Math::Constant(_))),
                     _ => false,
                 }),
                 _ => false,
@@ -887,21 +878,21 @@ pub fn impossible_conditions(
             egraph[subst[var3]].nodes.iter().any(|n3| match n3 {
                 Math::Constant(_) => egraph[subst[var0]].nodes.iter().any(|n| match n {
                     Math::Symbol(_) => egraph[subst[var1]].nodes.iter().any(|n1| match n1 {
-                        Math::Constant(_) => egraph[subst[var2]].nodes.iter().any(|n2| match n2 {
-                            Math::Constant(_) => true,
-                            _ => false,
-                        }),
+                        Math::Constant(_) => egraph[subst[var2]]
+                            .nodes
+                            .iter()
+                            .any(|n2| matches!(n2, Math::Constant(_))),
                         _ => false,
                     }),
                     Math::Constant(_) => egraph[subst[var1]].nodes.iter().any(|n1| match n1 {
-                        Math::Symbol(_) => egraph[subst[var2]].nodes.iter().any(|n2| match n2 {
-                            Math::Constant(_) => true,
-                            _ => false,
-                        }),
-                        Math::Constant(_) => egraph[subst[var2]].nodes.iter().any(|n2| match n2 {
-                            Math::Symbol(_) => true,
-                            _ => false,
-                        }),
+                        Math::Symbol(_) => egraph[subst[var2]]
+                            .nodes
+                            .iter()
+                            .any(|n2| matches!(n2, Math::Constant(_))),
+                        Math::Constant(_) => egraph[subst[var2]]
+                            .nodes
+                            .iter()
+                            .any(|n2| matches!(n2, Math::Symbol(_))),
                         _ => false,
                     }),
                     _ => false,
@@ -946,39 +937,31 @@ pub fn impossible_conditions(
                 Math::Constant(_) => egraph[subst[var0]].nodes.iter().any(|n| match n {
                     Math::Symbol(_) => egraph[subst[var1]].nodes.iter().any(|n1| match n1 {
                         Math::Constant(_) => egraph[subst[var2]].nodes.iter().any(|n2| match n2 {
-                            Math::Constant(_) => {
-                                egraph[subst[var3]].nodes.iter().any(|n3| match n3 {
-                                    Math::Constant(_) => true,
-                                    _ => false,
-                                })
-                            }
+                            Math::Constant(_) => egraph[subst[var3]]
+                                .nodes
+                                .iter()
+                                .any(|n3| matches!(n3, Math::Constant(_))),
                             _ => false,
                         }),
                         _ => false,
                     }),
                     Math::Constant(_) => egraph[subst[var1]].nodes.iter().any(|n1| match n1 {
                         Math::Symbol(_) => egraph[subst[var2]].nodes.iter().any(|n2| match n2 {
-                            Math::Constant(_) => {
-                                egraph[subst[var3]].nodes.iter().any(|n3| match n3 {
-                                    Math::Constant(_) => true,
-                                    _ => false,
-                                })
-                            }
+                            Math::Constant(_) => egraph[subst[var3]]
+                                .nodes
+                                .iter()
+                                .any(|n3| matches!(n3, Math::Constant(_))),
                             _ => false,
                         }),
                         Math::Constant(_) => egraph[subst[var2]].nodes.iter().any(|n2| match n2 {
-                            Math::Symbol(_) => {
-                                egraph[subst[var3]].nodes.iter().any(|n3| match n3 {
-                                    Math::Constant(_) => true,
-                                    _ => false,
-                                })
-                            }
-                            Math::Constant(_) => {
-                                egraph[subst[var3]].nodes.iter().any(|n3| match n3 {
-                                    Math::Symbol(_) => true,
-                                    _ => false,
-                                })
-                            }
+                            Math::Symbol(_) => egraph[subst[var3]]
+                                .nodes
+                                .iter()
+                                .any(|n3| matches!(n3, Math::Constant(_))),
+                            Math::Constant(_) => egraph[subst[var3]]
+                                .nodes
+                                .iter()
+                                .any(|n3| matches!(n3, Math::Symbol(_))),
                             _ => false,
                         }),
                         _ => false,
@@ -1152,7 +1135,7 @@ pub fn prove_pulses(
     let mut id;
     let best_expr;
     let mut total_time: f64 = 0.0;
-    let nbr_passes = (params.2 as f64) / threshold;
+    let nbr_passes = params.2 / threshold;
 
     if report {
         println!(
@@ -1178,7 +1161,7 @@ pub fn prove_pulses(
         if i > 0.0 {
             //Extract the best expression from the egraph.
             let mut extractor;
-            extractor = Extractor::new(&((&runner).egraph), AstDepth);
+            extractor = Extractor::new(&(runner.egraph), AstDepth);
 
             //Calculate the extraction time.
             let now = Instant::now();
@@ -1190,8 +1173,8 @@ pub fn prove_pulses(
                 println!(
                     "Starting pass {} with Expr: {} in {}",
                     i,
-                    format!("{}", expr).bright_green().bold(),
-                    format!("{}", extraction_time).bright_green().bold()
+                    expr.to_string().bright_green().bold(),
+                    extraction_time.to_string().bright_green().bold()
                 );
             }
         }
@@ -1223,10 +1206,7 @@ pub fn prove_pulses(
         }
 
         //If we saturate then the expression is unprovable using our ruleset.
-        let saturated = match &runner.stop_reason.as_ref().unwrap() {
-            StopReason::Saturated => true,
-            _ => false,
-        };
+        let saturated = matches!(runner.stop_reason.as_ref().unwrap(), StopReason::Saturated);
         let exec_time: f64 = runner.iterations.iter().map(|i| i.total_time).sum();
         total_time += exec_time;
         //Exit the loop if we saturated or reached the limits.
@@ -1257,7 +1237,7 @@ pub fn prove_pulses(
             println!("{}\n", "Could not prove any goal:".bright_red().bold(),);
             println!(
                 "Best Expr: {}",
-                format!("{}", best_exprr).bright_green().bold()
+                best_exprr.to_string().bright_green().bold()
             );
             println!(
                 "{} {}",
@@ -1325,12 +1305,12 @@ pub fn check_npp(egraph: &EGraph, start_id: Id) -> (bool, String) {
     // For each npp check if the empo matches the root eclass of the egraph
     for (impo_index, impo) in impossibles.iter().enumerate() {
         //check if the npp maches the root eclass of the egraph
-        let results = match impo.0.search_eclass(&egraph, start_id) {
+        let results = match impo.0.search_eclass(egraph, start_id) {
             Option::Some(res) => res,
             _ => continue,
         };
         // Run the condition function then return the npp if the condition is true.
-        if results.substs.iter().any(|subst| (impo.1)(&egraph, subst)) {
+        if results.substs.iter().any(|subst| (impo.1)(egraph, subst)) {
             proved_impo = true;
             proved_impo_index = impo_index;
             break;
@@ -1362,7 +1342,7 @@ pub fn prove_pulses_npp(
     let mut total_time: f64 = 0.0;
 
     // Initialize the number of pulses based on the threshold passed as parameter.
-    let nbr_passes = (params.2 as f64) / threshold;
+    let nbr_passes = params.2 / threshold;
 
     if report {
         println!(
@@ -1387,7 +1367,7 @@ pub fn prove_pulses_npp(
         if i > 0.0 {
             //Extract the best expression and calculate the extraction time.
             let mut extractor;
-            extractor = Extractor::new(&((&runner).egraph), AstDepth);
+            extractor = Extractor::new(&((runner).egraph), AstDepth);
             let now = Instant::now();
             let (_, best_exprr) = extractor.find_best(id);
             let extraction_time = now.elapsed().as_secs_f64();
@@ -1398,8 +1378,8 @@ pub fn prove_pulses_npp(
                 println!(
                     "Starting pass {} with Expr: {} in {}",
                     i,
-                    format!("{}", expr).bright_green().bold(),
-                    format!("{}", extraction_time).bright_green().bold()
+                    expr.to_string().bright_green().bold(),
+                    extraction_time.to_string().bright_green().bold()
                 );
             }
         }
@@ -1438,13 +1418,7 @@ pub fn prove_pulses_npp(
         //Check if the runner saturated or found an NPP
         let dont_continue = match &runner.stop_reason.as_ref().unwrap() {
             StopReason::Saturated => true,
-            StopReason::Other(stop) => {
-                if stop.contains("Impossible") {
-                    true
-                } else {
-                    false
-                }
-            }
+            StopReason::Other(stop) => stop.contains("Impossible"),
             _ => false,
         };
 
@@ -1480,7 +1454,7 @@ pub fn prove_pulses_npp(
             println!("{}\n", "Could not prove any goal:".bright_red().bold(),);
             println!(
                 "Best Expr: {}",
-                format!("{}", best_exprr).bright_green().bold()
+                best_exprr.to_string().bright_green().bold()
             );
             println!(
                 "{} {}",
@@ -1535,7 +1509,6 @@ pub fn prove_npp(
     let runner: Runner<Math, ConstantFold>;
     let mut result = false;
     let mut proved_goal_index = 0;
-    let id;
     let best_expr;
     let mut total_time: f64 = 0.0;
 
@@ -1566,7 +1539,7 @@ pub fn prove_npp(
             .run(rules(ruleset_class).iter());
     }
     //Get the id of the  eclass containing the input expression.
-    id = runner.egraph.find(*runner.roots.last().unwrap());
+    let id = runner.egraph.find(*runner.roots.last().unwrap());
 
     // Check if one of the goals matches
     for (goal_index, goal) in goals.iter().enumerate() {
@@ -1603,7 +1576,7 @@ pub fn prove_npp(
             println!("{}\n", "Could not prove any goal:".bright_red().bold(),);
             println!(
                 "Best Expr: {}",
-                format!("{}", best_exprr).bright_green().bold()
+                best_exprr.to_string().bright_green().bold()
             );
             println!(
                 "{} {}",

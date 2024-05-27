@@ -37,6 +37,7 @@ pub struct ResultStructure {
     halide_time: f64,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl ResultStructure {
     //Constructor for the ResultStructure
     pub fn new(

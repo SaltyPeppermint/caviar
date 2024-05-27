@@ -7,8 +7,8 @@ use std::time::Duration;
 use structs::{ExpressionStruct, ResultStructure};
 use trs::{prove, prove_expression_with_file_classes, prove_npp, prove_pulses, prove_pulses_npp};
 
-use crate::io::reader::read_expressions_paper;
-use crate::io::writer::write_results_paper;
+//use crate::io::reader::read_expressions_paper;
+//use crate::io::writer::write_results_paper;
 use crate::structs::PaperResult;
 use crate::trs::simplify;
 mod trs;
@@ -21,7 +21,7 @@ mod structs;
 /// Runs Simple Caviar to prove the expressions passed as vector using the different params passed.
 #[allow(dead_code)]
 fn prove_expressions(
-    exprs_vect: &Vec<ExpressionStruct>,
+    exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
     params: (usize, usize, f64),
     use_iteration_check: bool,
@@ -50,7 +50,7 @@ fn prove_expressions(
 /// Runs Caviar with Pulses on the expressions passed as vector using the different params passed.
 #[allow(dead_code)]
 fn prove_expressions_pulses(
-    exprs_vect: &Vec<ExpressionStruct>,
+    exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
     threshold: f64,
     params: (usize, usize, f64),
@@ -80,7 +80,7 @@ fn prove_expressions_pulses(
 /// Runs Caviar with NPP on the expressions passed as vector using the different params passed.
 #[allow(dead_code)]
 fn prove_expressions_npp(
-    exprs_vect: &Vec<ExpressionStruct>,
+    exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
     params: (usize, usize, f64),
     use_iteration_check: bool,
@@ -109,7 +109,7 @@ fn prove_expressions_npp(
 /// Runs  Caviar with Pulses and NPP on the expressions passed as vector using the different params passed.
 #[allow(dead_code)]
 fn prove_expressions_pulses_npp_paper(
-    exprs_vect: &Vec<(String, String)>,
+    exprs_vect: &[(String, String)],
     ruleset_class: i8,
     threshold: f64,
     params: (usize, usize, f64),
@@ -143,7 +143,7 @@ fn prove_expressions_pulses_npp_paper(
 ///Runs Caviar with Pulses and NPP on the expressions passed as vector using the different params passed.
 #[allow(dead_code)]
 fn prove_expressions_pulses_npp(
-    exprs_vect: &Vec<ExpressionStruct>,
+    exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
     threshold: f64,
     params: (usize, usize, f64),
@@ -171,12 +171,12 @@ fn prove_expressions_pulses_npp(
 /// Runs Caviar using hierarchical clusters of rules to prove the expressions passed as vector using the different params passed.
 fn prove_clusters(
     path: OsString,
-    exprs_vect: &Vec<ExpressionStruct>,
+    exprs_vect: &[ExpressionStruct],
     params: (usize, usize, f64),
     count: usize,
     use_iteration_check: bool,
     report: bool,
-) -> () {
+) {
     //Read the clusters from the files generated using Python.
     let mut file = File::open(path).unwrap();
     let mut s = String::new();
@@ -250,7 +250,7 @@ fn prove_clusters(
 /// Runs Simple Caviar to simplify the expressions passed as vector using the different params passed.
 #[allow(dead_code)]
 fn simplify_expressions(
-    exprs_vect: &Vec<ExpressionStruct>,
+    exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
     params: (usize, usize, f64),
     report: bool,
@@ -343,7 +343,7 @@ fn main() {
             "npp" => {
                 let expression_vect = read_expressions(&expressions_file).unwrap();
                 let results = prove_expressions_npp(&expression_vect, -1, params, true, false);
-                write_results(&format!("tmp/results_fast.csv"), &results).unwrap();
+                write_results("tmp/results_fast.csv", &results).unwrap();
             }
             // Prove expressions using Caviar with Pulses and NPP and with pulses and with/without ILC.
             "pulses_npp" => {

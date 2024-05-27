@@ -34,7 +34,7 @@ pub fn generate_dataset_par(
 }
 
 /// For a given expression and goal, the function
-/// adds to the data vector the expression along 
+/// adds to the data vector the expression along
 /// with the minimal subset of rules it needs to be
 /// proved. Algorithm explained in the manuscript
 #[allow(dead_code)]
@@ -97,7 +97,7 @@ pub fn minimal_set_to_prove(
         ruleset_copy_names = ruleset_minimal
             .clone()
             .into_iter()
-            .map(|rule| rule.name().to_string())
+            .map(|rule| rule.name.to_string())
             .rev()
             .collect();
         data_object = object! {
@@ -110,10 +110,8 @@ pub fn minimal_set_to_prove(
         data.lock().unwrap().push(data_object);
         println!(
             "{0} rules are needed to prove: {1}",
-            format!("{0}", ruleset_minimal.len()).red().bold(),
-            format!("{0}", expression.0.to_string())
-                .bright_green()
-                .bold(),
+            ruleset_minimal.len().to_string().red().bold(),
+            expression.0.to_string().bright_green().bold(),
         );
         // for r in ruleset_minimal{
         //     println!(
@@ -124,7 +122,7 @@ pub fn minimal_set_to_prove(
 }
 
 /// Same as generate_dataset, but this time
-/// the expression are passed without goals 
+/// the expression are passed without goals
 /// The goal is assumed to be either 0 or 1.
 #[allow(dead_code)]
 pub fn generate_dataset_0_1_par(
@@ -144,7 +142,7 @@ pub fn generate_dataset_0_1_par(
     );
     expressions.par_iter().for_each(|expression| {
         minimal_set_to_prove_0_1(
-            &expression,
+            expression,
             ruleset_id,
             params,
             use_iteration_check,
@@ -159,7 +157,7 @@ pub fn generate_dataset_0_1_par(
 }
 
 /// Same as minimal_set_to_prove, but this time
-/// the expression are passed without goals 
+/// the expression are passed without goals
 /// The goal is assumed to be either 0 or 1.
 #[allow(dead_code)]
 pub fn minimal_set_to_prove_0_1(
@@ -190,7 +188,7 @@ pub fn minimal_set_to_prove_0_1(
         ruleset.shuffle(&mut rng);
         let mut ruleset_copy: Vec<egg::Rewrite<Math, ConstantFold>>;
         let mut ruleset_minimal: Vec<egg::Rewrite<Math, ConstantFold>>;
-        let ruleset_copy_names: Vec<String>;
+
         counter = 0;
         ruleset_minimal = ruleset.clone();
         while counter < reorder_count {
@@ -214,7 +212,7 @@ pub fn minimal_set_to_prove_0_1(
                 id = runner.egraph.find(*runner.roots.last().unwrap());
                 matches = goals.iter().all(|goal| {
                     let mat = goal.search_eclass(&runner.egraph, id);
-                    if !mat.is_none() {
+                    if mat.is_some() {
                         proved_goal = goal.to_string();
                     }
                     mat.is_none()
@@ -229,10 +227,10 @@ pub fn minimal_set_to_prove_0_1(
             }
             counter += 1;
         }
-        ruleset_copy_names = ruleset_minimal
+        let ruleset_copy_names: Vec<String> = ruleset_minimal
             .clone()
             .into_iter()
-            .map(|rule| rule.name().to_string())
+            .map(|rule| rule.name.to_string())
             .rev()
             .collect();
         data_object = object! {
@@ -245,9 +243,9 @@ pub fn minimal_set_to_prove_0_1(
         data.lock().unwrap().push(data_object);
         println!(
             "Batch #{0}: {1} rules are needed to prove: {2}",
-            format!("{0}", batch_number).blue().bold(),
-            format!("{0}", ruleset_minimal.len()).red().bold(),
-            format!("{0}", expression.to_string()).bright_green().bold(),
+            batch_number.to_string().blue().bold(),
+            ruleset_minimal.len().to_string().red().bold(),
+            expression.to_string().bright_green().bold(),
         );
         // for r in ruleset_copy{
         //     println!(
@@ -257,8 +255,8 @@ pub fn minimal_set_to_prove_0_1(
     } else {
         println!(
             "Batch #{0}: Could not prove {1}",
-            format!("{0}", batch_number).blue().bold(),
-            format!("{0}", expression.to_string()).red().bold()
+            batch_number.to_string().blue().bold(),
+            expression.to_string().red().bold()
         );
     }
 }
@@ -268,13 +266,13 @@ pub fn minimal_set_to_prove_0_1(
 /// It starts by reading expressions from a CSV file
 /// that must have the format (id, expression) for each
 /// row. It reads batch_size expressions before passing
-/// them to generate_dataset_0_1_par, which generate the 
-/// dataset for this batch of expressions and store it in a 
+/// them to generate_dataset_0_1_par, which generate the
+/// dataset for this batch of expressions and store it in a
 /// json file. Until the vector of expressions end.
 /// The continue_from_expr parameter can be used in case of failure.
 /// For example if we have 1 million expressions, our batch_size
 /// is set to 1000, and the execution fails after generating the
-/// dataset of 200 batched, we should relaunch the execution starting 
+/// dataset of 200 batched, we should relaunch the execution starting
 /// from the 200*1000 = 200,000th expression.
 pub fn generation_execution(
     file_path: &OsString,
@@ -308,7 +306,7 @@ pub fn generation_execution(
             }
         }
     }
-    if expressions_vect.len() > 0 {
+    if !expressions_vect.is_empty() {
         generate_dataset_0_1_par(
             &expressions_vect,
             -2,
