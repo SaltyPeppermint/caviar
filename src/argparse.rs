@@ -12,7 +12,7 @@ use clap::Subcommand;
 pub struct CliArgs {
     /// Name of the person to greet
     #[command(subcommand)]
-    pub operation: Operation,
+    pub mode: Mode,
 
     #[command(flatten)]
     pub params: Params,
@@ -71,7 +71,7 @@ pub enum ProveStrategy {
 
 /// Subcommands for the specific modes
 #[derive(Subcommand, Debug)]
-pub enum Operation {
+pub enum Mode {
     /// Generates a dataset for minimum rulesets needed for each expression from the expressions file passed as argument
     Dataset {
         #[arg(short, long)]

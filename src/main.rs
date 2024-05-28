@@ -7,7 +7,7 @@ mod rules;
 mod structs;
 mod trs;
 
-use argparse::{CliArgs, Operation, Params, ProveParams, ProveStrategy};
+use argparse::{CliArgs, Mode, Params, ProveParams, ProveStrategy};
 use clap::Parser;
 use std::fs::File;
 use std::io::Read;
@@ -345,9 +345,8 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: ProveStrategy) {
 #[allow(clippy::too_many_lines)]
 fn main() {
     let args = CliArgs::parse();
-    // let params = (args.iter, args.nodes, args.time);
-    match args.operation {
-        Operation::Dataset {
+    match args.mode {
+        Mode::Dataset {
             reorder_count,
             batch_size,
             continoue_from_expr: continue_from_expr,
@@ -365,12 +364,12 @@ fn main() {
             );
         }
 
-        Operation::Simplify { report } => {
+        Mode::Simplify { report } => {
             let expression_vect = read_expressions(&args.params.expressions_file).unwrap();
             let results = simplify_expressions(&expression_vect, -1, &args.params, report);
             writer::write_results("tmp/results_simplify.csv", &results).unwrap();
         }
-        Operation::Prove {
+        Mode::Prove {
             strategy,
             prove_params,
         } => prove(&args.params, &prove_params, strategy),
