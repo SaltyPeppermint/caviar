@@ -20,3 +20,5 @@ num-traits = "0.2.14"
 rand = "0.8.0"
 json = "*"
 rayon = "1.5"
+clap = { version = "4.5.4", features = ["derive"] }
+anyhow = "1.0.86"

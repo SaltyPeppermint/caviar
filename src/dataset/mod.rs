@@ -1,17 +1,17 @@
-use crate::trs::{rules, ConstantFold, Math};
-use colored::Colorize;
-use csv::ReaderBuilder;
-use egg::{Pattern, RecExpr, Runner, Searcher};
-use json::object;
-use json::JsonValue;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
-use rayon::prelude::*;
-use std::ffi::OsString;
 use std::fs::File;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+use colored::Colorize;
+use csv::ReaderBuilder;
+use egg::{Pattern, RecExpr, Runner, Searcher};
+use json::{object, JsonValue};
+use rand::seq::SliceRandom;
+use rayon::prelude::*;
+
+use crate::argparse::Params;
+use crate::trs::{rules, ConstantFold, Math};
 
 /// Given a vector (expression, goal), the functions writes
 /// to dataset.json each expression along with the approximate
@@ -45,7 +45,7 @@ pub fn minimal_set_to_prove(
     reorder_count: usize,
     data: &Arc<Mutex<Vec<JsonValue>>>,
 ) {
-    let mut rng = thread_rng();
+    let mut rng = rand::thread_rng();
     let mut start: RecExpr<Math>;
     let mut end: Pattern<Math>;
     let mut runner;
@@ -128,7 +128,7 @@ pub fn minimal_set_to_prove(
 pub fn generate_dataset_0_1_par(
     expressions: &Vec<String>,
     ruleset_id: i8,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     reorder_count: usize,
     batch_number: usize,
@@ -138,7 +138,7 @@ pub fn generate_dataset_0_1_par(
     let data = Arc::new(Mutex::new(Vec::new()));
     println!(
         "Generating batch #{0} with params iter_limit={1} nodes_limit={2} time_limit={3}",
-        batch_number, params.0, params.1, params.2
+        batch_number, params.iter, params.nodes, params.time
     );
     expressions.par_iter().for_each(|expression| {
         minimal_set_to_prove_0_1(
@@ -163,13 +163,13 @@ pub fn generate_dataset_0_1_par(
 pub fn minimal_set_to_prove_0_1(
     expression: &str,
     ruleset_id: i8,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     reorder_count: usize,
     data: &Arc<Mutex<Vec<JsonValue>>>,
     batch_number: usize,
 ) {
-    let mut rng = thread_rng();
+    let mut rng = rand::thread_rng();
     let mut start: RecExpr<Math>;
     let end_1: Pattern<Math> = "1".parse().unwrap();
     let end_0: Pattern<Math> = "0".parse().unwrap();
@@ -199,9 +199,9 @@ pub fn minimal_set_to_prove_0_1(
                 rule = ruleset_copy.remove(i);
                 start = expression.parse().unwrap();
                 runner = Runner::default()
-                    .with_iter_limit(params.0)
-                    .with_node_limit(params.1)
-                    .with_time_limit(Duration::from_secs_f64(params.2))
+                    .with_iter_limit(params.iter)
+                    .with_node_limit(params.nodes)
+                    .with_time_limit(Duration::from_secs_f64(params.time))
                     .with_expr(&start);
 
                 if use_iteration_check {
@@ -275,14 +275,13 @@ pub fn minimal_set_to_prove_0_1(
 /// dataset of 200 batched, we should relaunch the execution starting
 /// from the 200*1000 = 200,000th expression.
 pub fn generation_execution(
-    file_path: &OsString,
-    params: (usize, usize, f64),
+    params: &Params,
     reorder_count: usize,
     batch_size: usize,
     continue_from_expr: usize,
 ) {
     let mut expressions_vect = Vec::new();
-    let file = File::open(file_path).unwrap();
+    let file = File::open(&params.expressions_file).unwrap();
     //let mut rdr = csv::Reader::from_reader(file);
     let mut rdr = ReaderBuilder::new().delimiter(b',').from_reader(file);
     let mut i = 0;

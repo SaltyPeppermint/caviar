@@ -29,12 +29,10 @@ pub struct ResultStructure {
     pub total_time: f64,
     // The reason the execution stopped
     stop_reason: String,
-    //The condition of the rule
+    // The condition of the rule
     condition: Option<String>,
-    // Halide's result for proving the expression
-    halide_result: String,
-    // The time it took halide to prove the expression
-    halide_time: f64,
+    // Halide Data for the expression
+    halide_data: Option<HalideData>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -53,8 +51,6 @@ impl ResultStructure {
         total_time: f64,
         stop_reason: String,
         condition: Option<String>,
-        // halide_result: bool,
-        // halide_time: f64
     ) -> Self {
         Self {
             index,
@@ -69,8 +65,7 @@ impl ResultStructure {
             total_time,
             stop_reason,
             condition,
-            halide_result: "false".to_string(),
-            halide_time: 0.0,
+            halide_data: None,
         }
     }
 
@@ -80,9 +75,8 @@ impl ResultStructure {
         self.condition = Some(condition);
     }
 
-    pub fn add_halide(&mut self, halide_result: String, halide_time: f64) {
-        self.halide_result = halide_result;
-        self.halide_time = halide_time;
+    pub fn add_halide(&mut self, halide_data: Option<HalideData>) {
+        self.halide_data = halide_data;
     }
 }
 
@@ -93,6 +87,12 @@ pub struct ExpressionStruct {
     pub index: i32,
     // the string of the expression
     pub expression: String,
+    // Optional halide data
+    pub halide_data: Option<HalideData>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct HalideData {
     // Halide's result for proving the expression
     pub halide_result: String,
     // The time it took halide to prove the expression
@@ -101,12 +101,11 @@ pub struct ExpressionStruct {
 
 impl ExpressionStruct {
     //Constructor of ExpressionStruct
-    pub fn new(index: i32, expression: String, halide_result: String, halide_time: f64) -> Self {
+    pub fn new(index: i32, expression: String, halide_data: Option<HalideData>) -> Self {
         Self {
             index,
             expression,
-            halide_result,
-            halide_time,
+            halide_data,
         }
     }
 }

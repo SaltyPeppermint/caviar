@@ -1,5 +1,3 @@
-use json::JsonValue;
-use std::error::Error;
 use std::time::Duration;
 use std::{cmp::Ordering, time::Instant};
 
@@ -8,7 +6,9 @@ use egg::{
     define_language, Analysis, AstDepth, AstSize, Extractor, Id, Pattern, RecExpr, Runner,
     Searcher, StopReason, Subst, Symbol, Var,
 };
+use json::JsonValue;
 
+use crate::argparse::Params;
 use crate::structs::{ResultStructure, Rule};
 
 // Defining aliases to reduce code.
@@ -196,7 +196,7 @@ pub fn compare_c0_c1(
 
 /// Takes a JSON array of rules ids and return the vector of their associated Rewrites
 #[allow(clippy::unnecessary_wraps, clippy::similar_names)]
-pub fn filtered_rules(class: &json::JsonValue) -> Result<Vec<Rewrite>, Box<dyn Error>> {
+pub fn filtered_rules(class: &json::JsonValue) -> anyhow::Result<Vec<Rewrite>> {
     let add_rules = crate::rules::add::add();
     let and_rules = crate::rules::and::and();
     let andor_rules = crate::rules::andor::andor();
@@ -300,16 +300,16 @@ pub fn simplify(
     index: i32,
     start_expression: &str,
     ruleset_class: i8,
-    params: (usize, usize, f64),
+    params: &Params,
     report: bool,
 ) -> ResultStructure {
     //Parse the input expression
     let start: RecExpr<Math> = start_expression.parse().unwrap();
     //Initialize the runner and run it.
     let runner = Runner::default()
-        .with_iter_limit(params.0)
-        .with_node_limit(params.1)
-        .with_time_limit(Duration::from_secs_f64(params.2))
+        .with_iter_limit(params.iter)
+        .with_node_limit(params.nodes)
+        .with_time_limit(Duration::from_secs_f64(params.time))
         .with_expr(&start)
         .run(rules(ruleset_class).iter());
 
@@ -452,7 +452,7 @@ pub fn prove(
     index: i32,
     start_expression: &str,
     ruleset_class: i8,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     report: bool,
 ) -> ResultStructure {
@@ -474,17 +474,17 @@ pub fn prove(
     // Initialize the runner and run it using the ILC contribution.
     let runner: Runner<Math, ConstantFold> = if use_iteration_check {
         Runner::default()
-            .with_iter_limit(params.0)
-            .with_node_limit(params.1)
-            .with_time_limit(Duration::from_secs_f64(params.2))
+            .with_iter_limit(params.iter)
+            .with_node_limit(params.nodes)
+            .with_time_limit(Duration::from_secs_f64(params.time))
             .with_expr(&start)
             .run_check_iteration(rules(ruleset_class).iter(), &goals)
     } else {
         // Initialize a simple runner and run it.
         Runner::default()
-            .with_iter_limit(params.0)
-            .with_node_limit(params.1)
-            .with_time_limit(Duration::from_secs_f64(params.2))
+            .with_iter_limit(params.iter)
+            .with_node_limit(params.nodes)
+            .with_time_limit(Duration::from_secs_f64(params.time))
             .with_expr(&start)
             .run(rules(ruleset_class).iter())
     };
@@ -588,12 +588,12 @@ pub fn prove_rule(
 #[allow(clippy::cast_precision_loss, clippy::cast_possible_wrap)]
 pub fn prove_expression_with_file_classes(
     classes: &JsonValue,
-    params: (usize, usize, f64),
+    params: &Params,
     index: i32,
     start_expression: &str,
     use_iteration_check: bool,
     report: bool,
-) -> Result<(ResultStructure, i64, Duration), Box<dyn Error>> {
+) -> anyhow::Result<(ResultStructure, i64, Duration)> {
     let start: RecExpr<Math> = start_expression.parse().unwrap();
     let mut result: bool = false;
     let mut runner: egg::Runner<Math, ConstantFold>;
@@ -607,13 +607,13 @@ pub fn prove_expression_with_file_classes(
     let goals = [end_0.clone(), end_1.clone()];
     let mut total_time: f64 = 0.0;
 
-    let time_per_class = params.2 / (classes.len() as f64);
+    let time_per_class = params.time / (classes.len() as f64);
 
     // rules = filtered_rules(&classes[0])?;
     let start_t = Instant::now();
     runner = Runner::default()
-        .with_iter_limit(params.0)
-        .with_node_limit(params.1)
+        .with_iter_limit(params.iter)
+        .with_node_limit(params.nodes)
         .with_time_limit(Duration::from_secs_f64(time_per_class))
         .with_expr(&start);
     let id = runner.egraph.find(*runner.roots.last().unwrap());
@@ -625,8 +625,8 @@ pub fn prove_expression_with_file_classes(
         if i > 0 {
             //Initialize the runner with the new ruleset.
             runner = Runner::default()
-                .with_iter_limit(params.0)
-                .with_node_limit(params.1)
+                .with_iter_limit(params.iter)
+                .with_node_limit(params.nodes)
                 .with_time_limit(Duration::from_secs_f64(time_per_class))
                 .with_egraph(runner.egraph);
         }
@@ -1075,7 +1075,7 @@ pub fn prove_pulses(
     start_expression: &str,
     ruleset_class: i8,
     threshold: f64,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     report: bool,
 ) -> ResultStructure {
@@ -1091,7 +1091,7 @@ pub fn prove_pulses(
     let mut id;
     let best_expr;
     let mut total_time: f64 = 0.0;
-    let nbr_passes = params.2 / threshold;
+    let nbr_passes = params.time / threshold;
 
     if report {
         println!(
@@ -1105,8 +1105,8 @@ pub fn prove_pulses(
 
     //Initialize the runner with the limits and the initial expression.
     let mut runner = Runner::default()
-        .with_iter_limit(params.0)
-        .with_node_limit(params.1)
+        .with_iter_limit(params.iter)
+        .with_node_limit(params.nodes)
         .with_time_limit(Duration::from_secs_f64(threshold))
         .with_expr(&expr);
     // Get the Id of the root eclass containing the initial expression.
@@ -1136,15 +1136,15 @@ pub fn prove_pulses(
         //Rerun the ES on the newly extracted expression.
         if use_iteration_check {
             runner = Runner::default()
-                .with_iter_limit(params.0)
-                .with_node_limit(params.1)
+                .with_iter_limit(params.iter)
+                .with_node_limit(params.nodes)
                 .with_time_limit(Duration::from_secs_f64(threshold))
                 .with_expr(&expr)
                 .run_check_iteration(rules(ruleset_class).iter(), &goals);
         } else {
             runner = Runner::default()
-                .with_iter_limit(params.0)
-                .with_node_limit(params.1)
+                .with_iter_limit(params.iter)
+                .with_node_limit(params.nodes)
                 .with_time_limit(Duration::from_secs_f64(threshold))
                 .with_expr(&expr)
                 .run(rules(ruleset_class).iter());
@@ -1281,7 +1281,7 @@ pub fn prove_pulses_npp(
     start_expression: &str,
     ruleset_class: i8,
     threshold: f64,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     report: bool,
 ) -> ResultStructure {
@@ -1297,7 +1297,7 @@ pub fn prove_pulses_npp(
     let mut total_time: f64 = 0.0;
 
     // Initialize the number of pulses based on the threshold passed as parameter.
-    let nbr_passes = params.2 / threshold;
+    let nbr_passes = params.time / threshold;
 
     if report {
         println!(
@@ -1311,8 +1311,8 @@ pub fn prove_pulses_npp(
 
     //Initialze the runner for the first Pulse
     let mut runner = Runner::default()
-        .with_iter_limit(params.0)
-        .with_node_limit(params.1)
+        .with_iter_limit(params.iter)
+        .with_node_limit(params.nodes)
         .with_time_limit(Duration::from_secs_f64(threshold))
         .with_expr(&expr);
     id = runner.egraph.find(*runner.roots.last().unwrap());
@@ -1341,8 +1341,8 @@ pub fn prove_pulses_npp(
         if use_iteration_check {
             //Reinitialize the runner and run equality saturation using ILC
             let (temp_runner, impo_time) = Runner::default()
-                .with_iter_limit(params.0)
-                .with_node_limit(params.1)
+                .with_iter_limit(params.iter)
+                .with_node_limit(params.nodes)
                 .with_time_limit(Duration::from_secs_f64(threshold))
                 .with_expr(&expr)
                 .run_fast(rules(ruleset_class).iter(), &goals, check_npp);
@@ -1351,8 +1351,8 @@ pub fn prove_pulses_npp(
         } else {
             //Reinitialize the runner and run equality saturation
             runner = Runner::default()
-                .with_iter_limit(params.0)
-                .with_node_limit(params.1)
+                .with_iter_limit(params.iter)
+                .with_node_limit(params.nodes)
                 .with_time_limit(Duration::from_secs_f64(threshold))
                 .with_expr(&expr)
                 .run(rules(ruleset_class).iter());
@@ -1451,7 +1451,7 @@ pub fn prove_npp(
     index: i32,
     start_expression: &str,
     ruleset_class: i8,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     report: bool,
 ) -> ResultStructure {
@@ -1475,9 +1475,9 @@ pub fn prove_npp(
     // Enable the use of the iterative check technique
     if use_iteration_check {
         let (runner_temp, impo_time) = Runner::default()
-            .with_iter_limit(params.0)
-            .with_node_limit(params.1)
-            .with_time_limit(Duration::from_secs_f64(params.2))
+            .with_iter_limit(params.iter)
+            .with_node_limit(params.nodes)
+            .with_time_limit(Duration::from_secs_f64(params.time))
             .with_expr(&start)
             .run_fast(rules(ruleset_class).iter(), &goals, check_npp);
         runner = runner_temp;
@@ -1485,9 +1485,9 @@ pub fn prove_npp(
     } else {
         //Run simple ES.
         runner = Runner::default()
-            .with_iter_limit(params.0)
-            .with_node_limit(params.1)
-            .with_time_limit(Duration::from_secs_f64(params.2))
+            .with_iter_limit(params.iter)
+            .with_node_limit(params.nodes)
+            .with_time_limit(Duration::from_secs_f64(params.time))
             .with_expr(&start)
             .run(rules(ruleset_class).iter());
     }

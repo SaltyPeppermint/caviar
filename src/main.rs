@@ -1,31 +1,33 @@
 #![warn(clippy::all, clippy::pedantic)]
 
-use std::{env, ffi::OsString, fs::File, io::Read, time::Instant};
-
-use io::reader::{get_nth_arg, get_runner_params, get_start_end, read_expressions};
-use io::writer::write_results;
-use json::parse;
-use std::time::Duration;
-use structs::{ExpressionStruct, ResultStructure};
-use trs::{prove, prove_expression_with_file_classes, prove_npp, prove_pulses, prove_pulses_npp};
-
-//use crate::io::reader::read_expressions_paper;
-//use crate::io::writer::write_results_paper;
-use crate::structs::PaperResult;
-use crate::trs::simplify;
-mod trs;
-
+mod argparse;
 mod dataset;
 mod io;
 mod rules;
 mod structs;
+mod trs;
+
+use argparse::{CliArgs, Operation, Params, ProveParams, ProveStrategy};
+use clap::Parser;
+use std::fs::File;
+use std::io::Read;
+use std::time::{Duration, Instant};
+
+use json::parse;
+
+//use crate::io::reader::read_expressions_paper;
+//use crate::io::writer::write_results_paper;
+use crate::io::reader::read_expressions;
+//use crate::io::writer::write_results;
+use crate::io::writer;
+use crate::structs::{ExpressionStruct, PaperResult, ResultStructure};
 
 /// Runs Simple Caviar to prove the expressions passed as vector using the different params passed.
 #[allow(dead_code)]
 fn prove_expressions(
     exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     report: bool,
 ) -> Vec<ResultStructure> {
@@ -35,7 +37,7 @@ fn prove_expressions(
     //For each expression try to prove it then push the results into the results vector.
     for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
-        let mut res = prove(
+        let mut res = trs::prove(
             expression.index,
             &expression.expression,
             ruleset_class,
@@ -43,19 +45,18 @@ fn prove_expressions(
             use_iteration_check,
             report,
         );
-        res.add_halide(expression.halide_result.clone(), expression.halide_time);
+        res.add_halide(expression.halide_data.clone());
         results.push(res);
     }
     results
 }
 
 /// Runs Caviar with Pulses on the expressions passed as vector using the different params passed.
-#[allow(dead_code)]
 fn prove_expressions_pulses(
     exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
     threshold: f64,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     report: bool,
 ) -> Vec<ResultStructure> {
@@ -64,7 +65,7 @@ fn prove_expressions_pulses(
     //For each expression try to prove it using Caviar with Pulses then push the results into the results vector.
     for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
-        let mut res = prove_pulses(
+        let mut res = trs::prove_pulses(
             expression.index,
             &expression.expression,
             ruleset_class,
@@ -73,7 +74,7 @@ fn prove_expressions_pulses(
             use_iteration_check,
             report,
         );
-        res.add_halide(expression.halide_result.clone(), expression.halide_time);
+        res.add_halide(expression.halide_data.clone());
         results.push(res);
     }
     results
@@ -84,7 +85,7 @@ fn prove_expressions_pulses(
 fn prove_expressions_npp(
     exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     report: bool,
 ) -> Vec<ResultStructure> {
@@ -94,7 +95,7 @@ fn prove_expressions_npp(
     //For each expression try to prove it using Caviar with NPP then push the results into the results vector.
     for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
-        let mut res = prove_npp(
+        let mut res = trs::prove_npp(
             expression.index,
             &expression.expression,
             ruleset_class,
@@ -102,7 +103,7 @@ fn prove_expressions_npp(
             use_iteration_check,
             report,
         );
-        res.add_halide(expression.halide_result.clone(), expression.halide_time);
+        res.add_halide(expression.halide_data.clone());
         results.push(res);
     }
     results
@@ -114,7 +115,7 @@ fn prove_expressions_pulses_npp_paper(
     exprs_vect: &[(String, String)],
     ruleset_class: i8,
     threshold: f64,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     report: bool,
 ) -> Vec<PaperResult> {
@@ -123,7 +124,7 @@ fn prove_expressions_pulses_npp_paper(
     // For each expression try to prove it using Caviar with Pulses and NPP then push the results into the results vector.
     for expression in exprs_vect {
         println!("Starting Expression: {}", expression.0);
-        let res = prove_pulses_npp(
+        let res = trs::prove_pulses_npp(
             -1,
             &expression.1,
             ruleset_class,
@@ -143,12 +144,11 @@ fn prove_expressions_pulses_npp_paper(
 }
 
 ///Runs Caviar with Pulses and NPP on the expressions passed as vector using the different params passed.
-#[allow(dead_code)]
 fn prove_expressions_pulses_npp(
     exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
     threshold: f64,
-    params: (usize, usize, f64),
+    params: &Params,
     use_iteration_check: bool,
     report: bool,
 ) -> Vec<ResultStructure> {
@@ -157,7 +157,7 @@ fn prove_expressions_pulses_npp(
     // For each expression try to prove it using Caviar with Pulses and NPP then push the results into the results vector.
     for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
-        results.push(prove_pulses_npp(
+        results.push(trs::prove_pulses_npp(
             expression.index,
             &expression.expression,
             ruleset_class,
@@ -173,9 +173,9 @@ fn prove_expressions_pulses_npp(
 /// Runs Caviar using hierarchical clusters of rules to prove the expressions passed as vector using the different params passed.
 #[allow(clippy::cast_precision_loss)]
 fn prove_clusters(
-    path: OsString,
+    path: &str,
     exprs_vect: &[ExpressionStruct],
-    params: (usize, usize, f64),
+    params: &Params,
     count: usize,
     use_iteration_check: bool,
     report: bool,
@@ -203,7 +203,7 @@ fn prove_clusters(
         i = 0;
         average = 0.0;
         loop {
-            prove_result = prove_expression_with_file_classes(
+            prove_result = trs::prove_expression_with_file_classes(
                 &classes,
                 params,
                 expression.index,
@@ -236,13 +236,13 @@ fn prove_clusters(
     }
 
     //Write the results into the results csv file.
-    write_results(
+    writer::write_results(
         &format!(
             "results/k_{}_class_analysis_results_params_{}_{}_{}_exec_{}.csv",
             classes[0].len(),
-            params.0,
-            params.1,
-            params.2,
+            params.iter,
+            params.nodes,
+            params.time,
             duration
         ),
         &results_structs,
@@ -251,11 +251,10 @@ fn prove_clusters(
 }
 
 /// Runs Simple Caviar to simplify the expressions passed as vector using the different params passed.
-#[allow(dead_code)]
 fn simplify_expressions(
     exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
-    params: (usize, usize, f64),
+    params: &Params,
     report: bool,
 ) -> Vec<ResultStructure> {
     //Initialize the results vector.
@@ -264,142 +263,124 @@ fn simplify_expressions(
     //For each expression try to prove it then push the results into the results vector.
     for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
-        let mut res = simplify(
+        let mut res = trs::simplify(
             expression.index,
             &expression.expression,
             ruleset_class,
             params,
             report,
         );
-        res.add_halide(expression.halide_result.clone(), expression.halide_time);
+        res.add_halide(expression.halide_data.clone());
         results.push(res);
     }
     results
 }
 
+fn prove(params: &Params, prove_params: &ProveParams, strategy: ProveStrategy) {
+    match strategy {
+        ProveStrategy::Simple {} => {
+            let expression_vect = read_expressions(&params.expressions_file).unwrap();
+            let results = prove_expressions(
+                &expression_vect,
+                -1,
+                &params,
+                prove_params.use_iteration_check,
+                prove_params.report,
+            );
+            writer::write_results("tmp/results_prove.csv", &results).unwrap();
+        }
+        ProveStrategy::Pulse { threshold } => {
+            let expression_vect = read_expressions(&params.expressions_file).unwrap();
+            let results = prove_expressions_pulses(
+                &expression_vect,
+                -1,
+                threshold,
+                &params,
+                prove_params.use_iteration_check,
+                prove_params.report,
+            );
+            writer::write_results(&format!("tmp/results_beh_{threshold}.csv"), &results).unwrap();
+        }
+        ProveStrategy::Npp => {
+            let expression_vect = read_expressions(&params.expressions_file).unwrap();
+            let results = prove_expressions_npp(
+                &expression_vect,
+                -1,
+                &params,
+                prove_params.use_iteration_check,
+                prove_params.report,
+            );
+            writer::write_results("tmp/results_fast.csv", &results).unwrap();
+        }
+        ProveStrategy::PulseNpp { threshold } => {
+            let expression_vect = read_expressions(&params.expressions_file).unwrap();
+            let results = prove_expressions_pulses_npp(
+                &expression_vect,
+                -1,
+                threshold,
+                &params,
+                prove_params.use_iteration_check,
+                prove_params.report,
+            );
+            writer::write_results(&format!("tmp/results_beh_npp_{threshold}.csv"), &results)
+                .unwrap();
+        }
+        ProveStrategy::Clusters {
+            classes_file,
+            iterations_count,
+        } => {
+            let expression_vect = read_expressions(&params.expressions_file).unwrap();
+            prove_clusters(
+                &classes_file,
+                &expression_vect,
+                &params,
+                iterations_count,
+                prove_params.use_iteration_check,
+                prove_params.report,
+            );
+        }
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() > 4 {
-        let operation = get_nth_arg(1).unwrap();
-        let expressions_file = get_nth_arg(2).unwrap();
-        let params = get_runner_params(3).unwrap();
-        match operation.to_str().unwrap() {
-            // Generates a dataset for minimum rulesets needed for each expression from the expressions file passed as argument
-            "dataset" => {
-                // cargo run --release dataset ./results/expressions_egg.csv 1000000 10000000 5 5 3 0 4
-                let reorder_count = get_nth_arg(6)
-                    .unwrap()
-                    .into_string()
-                    .unwrap()
-                    .parse::<usize>()
-                    .unwrap();
-                let batch_size = get_nth_arg(7)
-                    .unwrap()
-                    .into_string()
-                    .unwrap()
-                    .parse::<usize>()
-                    .unwrap();
-                let continue_from_expr = get_nth_arg(8)
-                    .unwrap()
-                    .into_string()
-                    .unwrap()
-                    .parse::<usize>()
-                    .unwrap();
-                let cores = get_nth_arg(9)
-                    .unwrap()
-                    .into_string()
-                    .unwrap()
-                    .parse::<usize>()
-                    .unwrap();
-                rayon::ThreadPoolBuilder::new()
-                    .num_threads(cores)
-                    .build_global()
-                    .unwrap();
-                dataset::generation_execution(
-                    &expressions_file,
-                    params,
-                    reorder_count,
-                    batch_size,
-                    continue_from_expr,
-                );
-            }
-            // Prove expressions using Caviar with/without ILC
-            "prove" => {
-                let expression_vect = read_expressions(&expressions_file).unwrap();
-                let results = prove_expressions(&expression_vect, -1, params, true, false);
-                write_results("tmp/results_prove.csv", &results).unwrap();
-            }
-            // Prove expressions using Caviar with pulses and with/without ILC.
-            "pulses" => {
-                let threshold = get_nth_arg(6)
-                    .unwrap()
-                    .into_string()
-                    .unwrap()
-                    .parse::<f64>()
-                    .unwrap();
-                let expression_vect = read_expressions(&expressions_file).unwrap();
-                let results =
-                    prove_expressions_pulses(&expression_vect, -1, threshold, params, true, false);
-                write_results(&format!("tmp/results_beh_{threshold}.csv"), &results).unwrap();
-            }
-            // Prove expressions using Caviar with NPP and with/without ILC.
-            "npp" => {
-                let expression_vect = read_expressions(&expressions_file).unwrap();
-                let results = prove_expressions_npp(&expression_vect, -1, params, true, false);
-                write_results("tmp/results_fast.csv", &results).unwrap();
-            }
-            // Prove expressions using Caviar with Pulses and NPP and with pulses and with/without ILC.
-            "pulses_npp" => {
-                let threshold = get_nth_arg(6)
-                    .unwrap()
-                    .into_string()
-                    .unwrap()
-                    .parse::<f64>()
-                    .unwrap();
-                let expression_vect = read_expressions(&expressions_file).unwrap();
-                let results = prove_expressions_pulses_npp(
-                    &expression_vect,
-                    -1,
-                    threshold,
-                    params,
-                    true,
-                    false,
-                );
-                write_results(&format!("tmp/results_beh_npp_{threshold}.csv"), &results).unwrap();
-            }
-            // Prove expressions using Caviar with clusters of rules and with pulses and with/without ILC.
-            "clusters" => {
-                let expression_vect = read_expressions(&expressions_file).unwrap();
-                let classes_file = get_nth_arg(6).unwrap();
-                let iterations_count = get_nth_arg(7)
-                    .unwrap()
-                    .into_string()
-                    .unwrap()
-                    .parse::<usize>()
-                    .unwrap();
-                prove_clusters(
-                    classes_file,
-                    &expression_vect,
-                    params,
-                    iterations_count,
-                    true,
-                    true,
-                );
-            }
-            "simplify" => {
-                let expression_vect = read_expressions(&expressions_file).unwrap();
-                let results = simplify_expressions(&expression_vect, -1, params, true);
-                write_results("tmp/results_simplify.csv", &results).unwrap();
-            }
-            _ => {}
+    let args = CliArgs::parse();
+    // let params = (args.iter, args.nodes, args.time);
+    match args.operation {
+        Operation::Dataset {
+            reorder_count,
+            batch_size,
+            continoue_from_expr: continue_from_expr,
+            cores,
+        } => {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(cores)
+                .build_global()
+                .unwrap();
+            dataset::generation_execution(
+                &args.params,
+                reorder_count,
+                batch_size,
+                continue_from_expr,
+            );
         }
-    } else {
-        //Quick executions with default parameters
-        let params = get_runner_params(1).unwrap();
-        let (start, end) = get_start_end().unwrap();
-        println!("Simplifying expression:\n {start}\n to {end}");
-        //Example of NPP execution with default parameters
-        println!("{:?}", simplify(-1, &start, -1, params, true));
+
+        Operation::Simplify { report } => {
+            let expression_vect = read_expressions(&args.params.expressions_file).unwrap();
+            let results = simplify_expressions(&expression_vect, -1, &args.params, report);
+            writer::write_results("tmp/results_simplify.csv", &results).unwrap();
+        }
+        Operation::Prove {
+            strategy,
+            prove_params,
+        } => prove(&args.params, &prove_params, strategy),
     }
+    // } else {
+    //     //Quick executions with default parameters
+    //     let params = get_runner_params(1).unwrap();
+    //     let (start, end) = get_start_end().unwrap();
+    //     println!("Simplifying expression:\n {start}\n to {end}");
+    //     //Example of NPP execution with default parameters
+    //     println!("{:?}", simplify(-1, &start, -1, params, true));
+    // }
 }
