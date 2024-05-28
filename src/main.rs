@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::pedantic)]
+
 use std::{env, ffi::OsString, fs::File, io::Read, time::Instant};
 
 use io::reader::{get_nth_arg, get_runner_params, get_start_end, read_expressions};
@@ -31,7 +33,7 @@ fn prove_expressions(
     let mut results = Vec::new();
 
     //For each expression try to prove it then push the results into the results vector.
-    for expression in exprs_vect.iter() {
+    for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
         let mut res = prove(
             expression.index,
@@ -60,7 +62,7 @@ fn prove_expressions_pulses(
     //Initialize the results vector.
     let mut results = Vec::new();
     //For each expression try to prove it using Caviar with Pulses then push the results into the results vector.
-    for expression in exprs_vect.iter() {
+    for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
         let mut res = prove_pulses(
             expression.index,
@@ -90,7 +92,7 @@ fn prove_expressions_npp(
     let mut results = Vec::new();
 
     //For each expression try to prove it using Caviar with NPP then push the results into the results vector.
-    for expression in exprs_vect.iter() {
+    for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
         let mut res = prove_npp(
             expression.index,
@@ -119,7 +121,7 @@ fn prove_expressions_pulses_npp_paper(
     //Initialize the results vector.
     let mut results = Vec::new();
     // For each expression try to prove it using Caviar with Pulses and NPP then push the results into the results vector.
-    for expression in exprs_vect.iter() {
+    for expression in exprs_vect {
         println!("Starting Expression: {}", expression.0);
         let res = prove_pulses_npp(
             -1,
@@ -134,7 +136,7 @@ fn prove_expressions_pulses_npp_paper(
         results.push(PaperResult::new(
             expression.0.clone(),
             expression.1.clone(),
-            if res.result { 1 } else { 0 },
+            i8::from(res.result),
         ));
     }
     results
@@ -153,7 +155,7 @@ fn prove_expressions_pulses_npp(
     //Initialize the results vector.
     let mut results = Vec::new();
     // For each expression try to prove it using Caviar with Pulses and NPP then push the results into the results vector.
-    for expression in exprs_vect.iter() {
+    for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
         results.push(prove_pulses_npp(
             expression.index,
@@ -169,6 +171,7 @@ fn prove_expressions_pulses_npp(
 }
 
 /// Runs Caviar using hierarchical clusters of rules to prove the expressions passed as vector using the different params passed.
+#[allow(clippy::cast_precision_loss)]
 fn prove_clusters(
     path: OsString,
     exprs_vect: &[ExpressionStruct],
@@ -193,7 +196,7 @@ fn prove_clusters(
     let mut i;
 
     //For each expression try to prove it using the clusters generated one after the other.
-    for expression in exprs_vect.iter() {
+    for expression in exprs_vect {
         if report {
             println!("Starting Expression: {}", expression.index);
         }
@@ -229,7 +232,7 @@ fn prove_clusters(
     let duration = start_t.elapsed().as_secs();
     let exec_time: f64 = results_exec_time.iter().map(|i| i.as_secs() as f64).sum();
     if report {
-        println!("Execution time : |{}| |{}|", duration, exec_time);
+        println!("Execution time : |{duration}| |{exec_time}|");
     }
 
     //Write the results into the results csv file.
@@ -259,7 +262,7 @@ fn simplify_expressions(
     let mut results = Vec::new();
 
     //For each expression try to prove it then push the results into the results vector.
-    for expression in exprs_vect.iter() {
+    for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
         let mut res = simplify(
             expression.index,
@@ -274,9 +277,10 @@ fn simplify_expressions(
     results
 }
 
+#[allow(clippy::too_many_lines)]
 fn main() {
-    let _args: Vec<String> = env::args().collect();
-    if _args.len() > 4 {
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 4 {
         let operation = get_nth_arg(1).unwrap();
         let expressions_file = get_nth_arg(2).unwrap();
         let params = get_runner_params(3).unwrap();
@@ -337,7 +341,7 @@ fn main() {
                 let expression_vect = read_expressions(&expressions_file).unwrap();
                 let results =
                     prove_expressions_pulses(&expression_vect, -1, threshold, params, true, false);
-                write_results(&format!("tmp/results_beh_{}.csv", threshold), &results).unwrap();
+                write_results(&format!("tmp/results_beh_{threshold}.csv"), &results).unwrap();
             }
             // Prove expressions using Caviar with NPP and with/without ILC.
             "npp" => {
@@ -362,7 +366,7 @@ fn main() {
                     true,
                     false,
                 );
-                write_results(&format!("tmp/results_beh_npp_{}.csv", threshold), &results).unwrap();
+                write_results(&format!("tmp/results_beh_npp_{threshold}.csv"), &results).unwrap();
             }
             // Prove expressions using Caviar with clusters of rules and with pulses and with/without ILC.
             "clusters" => {
@@ -394,7 +398,7 @@ fn main() {
         //Quick executions with default parameters
         let params = get_runner_params(1).unwrap();
         let (start, end) = get_start_end().unwrap();
-        println!("Simplifying expression:\n {}\n to {}", start, end);
+        println!("Simplifying expression:\n {start}\n to {end}");
         //Example of NPP execution with default parameters
         println!("{:?}", simplify(-1, &start, -1, params, true));
     }

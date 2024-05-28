@@ -7,7 +7,7 @@ use std::{env, usize};
 use crate::structs::ExpressionStruct;
 use crate::structs::Rule;
 
-/// Reads expressions from a csv file into an ExpressionStruct Vector.
+/// Reads expressions from a csv file into an `ExpressionStruct` Vector.
 #[allow(dead_code)]
 pub fn read_expressions(file_path: &OsString) -> Result<Vec<ExpressionStruct>, Box<dyn Error>> {
     // Declare the vector and the reader
@@ -29,7 +29,7 @@ pub fn read_expressions(file_path: &OsString) -> Result<Vec<ExpressionStruct>, B
             expression.to_string(),
             halide_result.to_string(),
             halide_time,
-        ))
+        ));
     }
     Ok(expressions_vect)
 }
@@ -46,7 +46,7 @@ pub fn read_expressions_paper(
         let record = result?;
         let infix = record[0].to_string();
         let prefix = record[1].to_string();
-        expressions_vect.push((infix, prefix))
+        expressions_vect.push((infix, prefix));
     }
     Ok(expressions_vect)
 }
@@ -63,7 +63,7 @@ pub fn read_rules(file_path: &OsString) -> Result<Vec<Rule>, Box<dyn Error>> {
         let lhs = record[2].to_string();
         let rhs = record[3].to_string();
         let condition = record[4].to_string();
-        rules_vect.push(Rule::new(index, lhs, rhs, Some(condition)))
+        rules_vect.push(Rule::new(index, lhs, rhs, Some(condition)));
     }
     Ok(rules_vect)
 }
@@ -77,6 +77,7 @@ pub fn get_nth_arg(n: usize) -> Result<OsString, Box<dyn Error>> {
 }
 
 /// Gets the params passed to the runner from the command line
+#[allow(clippy::unnecessary_wraps)]
 pub fn get_runner_params(start: usize) -> Result<(usize, usize, f64), Box<dyn Error>> {
     //Get the number of iterations from the command line else initialize it to a default value
     let iter = match env::args_os().nth(start) {

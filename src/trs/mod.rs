@@ -3,8 +3,11 @@ use std::error::Error;
 use std::time::Duration;
 use std::{cmp::Ordering, time::Instant};
 
-use colored::*;
-use egg::*;
+use colored::Colorize;
+use egg::{
+    define_language, Analysis, AstDepth, AstSize, Extractor, Id, Pattern, RecExpr, Runner,
+    Searcher, StopReason, Subst, Symbol, Var,
+};
 
 use crate::structs::{ResultStructure, Rule};
 
@@ -44,13 +47,12 @@ impl Analysis<Math> for ConstantFold {
 
     fn merge(&self, a: &mut Self::Data, b: Self::Data) -> Option<Ordering> {
         match (a.as_mut(), &b) {
-            (None, None) => Some(Ordering::Equal),
             (None, Some(_)) => {
                 *a = b;
                 Some(Ordering::Less)
             }
             (Some(_), None) => Some(Ordering::Greater),
-            (Some(_), Some(_)) => Some(Ordering::Equal),
+            (Some(_), Some(_)) | (None, None) => Some(Ordering::Equal),
         }
         // if a.is_none() && b.is_some() {
         //     *a = b
@@ -68,41 +70,11 @@ impl Analysis<Math> for ConstantFold {
             Math::Div([a, b]) if *x(b)? != 0 => x(a)? / x(b)?,
             Math::Max([a, b]) => std::cmp::max(*x(a)?, *x(b)?),
             Math::Min([a, b]) => std::cmp::min(*x(a)?, *x(b)?),
-            Math::Not(a) => {
-                if *x(a)? == 0 {
-                    1
-                } else {
-                    0
-                }
-            }
-            Math::Lt([a, b]) => {
-                if x(a)? < x(b)? {
-                    1
-                } else {
-                    0
-                }
-            }
-            Math::Gt([a, b]) => {
-                if x(a)? > x(b)? {
-                    1
-                } else {
-                    0
-                }
-            }
-            Math::Let([a, b]) => {
-                if x(a)? <= x(b)? {
-                    1
-                } else {
-                    0
-                }
-            }
-            Math::Get([a, b]) => {
-                if x(a)? >= x(b)? {
-                    1
-                } else {
-                    0
-                }
-            }
+            Math::Not(a) => i64::from(*x(a)? == 0),
+            Math::Lt([a, b]) => i64::from(x(a)? < x(b)?),
+            Math::Gt([a, b]) => i64::from(x(a)? > x(b)?),
+            Math::Let([a, b]) => i64::from(x(a)? <= x(b)?),
+            Math::Get([a, b]) => i64::from(x(a)? >= x(b)?),
             Math::Mod([a, b]) => {
                 if *x(b)? == 0 {
                     0
@@ -110,34 +82,10 @@ impl Analysis<Math> for ConstantFold {
                     x(a)? % x(b)?
                 }
             }
-            Math::Eq([a, b]) => {
-                if x(a)? == x(b)? {
-                    1
-                } else {
-                    0
-                }
-            }
-            Math::IEq([a, b]) => {
-                if x(a)? != x(b)? {
-                    1
-                } else {
-                    0
-                }
-            }
-            Math::And([a, b]) => {
-                if *x(a)? == 0 || *x(b)? == 0 {
-                    0
-                } else {
-                    1
-                }
-            }
-            Math::Or([a, b]) => {
-                if *x(a)? == 1 || *x(b)? == 1 {
-                    1
-                } else {
-                    0
-                }
-            }
+            Math::Eq([a, b]) => i64::from(x(a)? == x(b)?),
+            Math::IEq([a, b]) => i64::from(x(a)? != x(b)?),
+            Math::And([a, b]) => i64::from(!(*x(a)? == 0 || *x(b)? == 0)),
+            Math::Or([a, b]) => i64::from(*x(a)? == 1 || *x(b)? == 1),
 
             _ => return None,
         })
@@ -150,7 +98,7 @@ impl Analysis<Math> for ConstantFold {
             let _ = egraph.union(id, added);
             let union_id = egraph.find(id);
             // to not prune, comment this out
-            egraph[union_id].nodes.retain(|n| n.is_leaf());
+            egraph[union_id].nodes.retain(egg::Language::is_leaf);
 
             assert!(
                 !egraph[union_id].nodes.is_empty(),
@@ -247,6 +195,7 @@ pub fn compare_c0_c1(
 }
 
 /// Takes a JSON array of rules ids and return the vector of their associated Rewrites
+#[allow(clippy::unnecessary_wraps, clippy::similar_names)]
 pub fn filtered_rules(class: &json::JsonValue) -> Result<Vec<Rewrite>, Box<dyn Error>> {
     let add_rules = crate::rules::add::add();
     let and_rules = crate::rules::and::and();
@@ -286,7 +235,7 @@ pub fn filtered_rules(class: &json::JsonValue) -> Result<Vec<Rewrite>, Box<dyn E
 }
 
 /// takes an class of rules to use then returns the vector of their associated Rewrites
-#[rustfmt::skip]
+#[allow(clippy::similar_names)]
 pub fn rules(ruleset_class: i8) -> Vec<Rewrite> {
     let add_rules = crate::rules::add::add();
     let and_rules = crate::rules::and::and();
@@ -305,14 +254,14 @@ pub fn rules(ruleset_class: i8) -> Vec<Rewrite> {
 
     match ruleset_class {
         // Class that only contains arithmetic operations' rules
-        0 =>
-            [
-                &add_rules[..],
-                &div_rules[..],
-                &modulo_rules[..],
-                &mul_rules[..],
-                &sub_rules[..],
-            ].concat(),
+        0 => [
+            &add_rules[..],
+            &div_rules[..],
+            &modulo_rules[..],
+            &mul_rules[..],
+            &sub_rules[..],
+        ]
+        .concat(),
         //All the rules
         _ => [
             &add_rules[..],
@@ -329,7 +278,8 @@ pub fn rules(ruleset_class: i8) -> Vec<Rewrite> {
             &not_rules[..],
             &or_rules[..],
             &sub_rules[..],
-        ].concat()
+        ]
+        .concat(),
     }
 }
 
@@ -380,9 +330,9 @@ pub fn simplify(
 
     let stop_reason = match runner.stop_reason.unwrap() {
         StopReason::Saturated => "Saturation".to_string(),
-        StopReason::IterationLimit(iter) => format!("Iterations: {}", iter),
-        StopReason::NodeLimit(nodes) => format!("Node Limit: {}", nodes),
-        StopReason::TimeLimit(time) => format!("Time Limit : {}", time),
+        StopReason::IterationLimit(iter) => format!("Iterations: {iter}"),
+        StopReason::NodeLimit(nodes) => format!("Node Limit: {nodes}"),
+        StopReason::TimeLimit(time) => format!("Time Limit : {time}"),
         StopReason::Other(reason) => reason,
     };
 
@@ -392,7 +342,7 @@ pub fn simplify(
         best_expr.to_string(),
         true,
         best_expr.to_string(),
-        ruleset_class as i64,
+        i64::from(ruleset_class),
         runner.iterations.len(),
         runner.egraph.total_number_of_nodes(),
         runner.iterations.iter().map(|i| i.n_rebuilds).sum(),
@@ -464,7 +414,7 @@ pub fn prove_equiv(
             );
         }
         result = true;
-        best_expr_string = Some(end.to_string())
+        best_expr_string = Some(end.to_string());
     }
     //Total execution time of the runner
     let total_time: f64 = runner.iterations.iter().map(|i| i.total_time).sum();
@@ -474,9 +424,9 @@ pub fn prove_equiv(
 
     let stop_reason = match runner.stop_reason.unwrap() {
         StopReason::Saturated => "Saturation".to_string(),
-        StopReason::IterationLimit(iter) => format!("Iterations: {}", iter),
-        StopReason::NodeLimit(nodes) => format!("Node Limit: {}", nodes),
-        StopReason::TimeLimit(time) => format!("Time Limit : {}", time),
+        StopReason::IterationLimit(iter) => format!("Iterations: {iter}"),
+        StopReason::NodeLimit(nodes) => format!("Node Limit: {nodes}"),
+        StopReason::TimeLimit(time) => format!("Time Limit : {time}"),
         StopReason::Other(reason) => reason,
     };
 
@@ -486,7 +436,7 @@ pub fn prove_equiv(
         end_expressions.to_string(),
         result,
         best_expr_string.unwrap_or_default(),
-        ruleset_class as i64,
+        i64::from(ruleset_class),
         runner.iterations.len(),
         runner.egraph.total_number_of_nodes(),
         runner.iterations.iter().map(|i| i.n_rebuilds).sum(),
@@ -518,9 +468,8 @@ pub fn prove(
 
     if report {
         println!(
-            "\n====================================\nProving Expression:\n {}\n",
-            start_expression
-        )
+            "\n====================================\nProving Expression:\n {start_expression}\n"
+        );
     }
     // Initialize the runner and run it using the ILC contribution.
     let runner: Runner<Math, ConstantFold> = if use_iteration_check {
@@ -590,9 +539,9 @@ pub fn prove(
 
     let stop_reason = match runner.stop_reason.unwrap() {
         StopReason::Saturated => "Saturation".to_string(),
-        StopReason::IterationLimit(iter) => format!("Iterations: {}", iter),
-        StopReason::NodeLimit(nodes) => format!("Node Limit: {}", nodes),
-        StopReason::TimeLimit(time) => format!("Time Limit : {}", time),
+        StopReason::IterationLimit(iter) => format!("Iterations: {iter}"),
+        StopReason::NodeLimit(nodes) => format!("Node Limit: {nodes}"),
+        StopReason::TimeLimit(time) => format!("Time Limit : {time}"),
         StopReason::Other(reason) => reason,
     };
 
@@ -602,7 +551,7 @@ pub fn prove(
         "1/0".to_string(),
         result,
         best_expr.unwrap_or_default(),
-        ruleset_class as i64,
+        i64::from(ruleset_class),
         runner.iterations.len(),
         runner.egraph.total_number_of_nodes(),
         runner.iterations.iter().map(|i| i.n_rebuilds).sum(),
@@ -612,7 +561,7 @@ pub fn prove(
     )
 }
 
-///Prove a rule by checking if the LHS of the rule matches the RHS using the cluster specified in the ruleset_class.
+///Prove a rule by checking if the LHS of the rule matches the RHS using the cluster specified in the `ruleset_class`.
 #[allow(dead_code)]
 pub fn prove_rule(
     rule: &Rule,
@@ -636,6 +585,7 @@ pub fn prove_rule(
 }
 
 ///Prove an expression to true or false using clusters of rules read from a file
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_wrap)]
 pub fn prove_expression_with_file_classes(
     classes: &JsonValue,
     params: (usize, usize, f64),
@@ -649,7 +599,7 @@ pub fn prove_expression_with_file_classes(
     let mut runner: egg::Runner<Math, ConstantFold>;
     let mut rules: Vec<Rewrite>;
     let mut proved_goal_index = 0;
-    let mut best_expr = Some("".to_string());
+    let mut best_expr = Some(String::new());
     let mut proving_class = -1;
     // First iteration of the runner.
     let end_1: Pattern<Math> = "1".parse().unwrap();
@@ -678,7 +628,7 @@ pub fn prove_expression_with_file_classes(
                 .with_iter_limit(params.0)
                 .with_node_limit(params.1)
                 .with_time_limit(Duration::from_secs_f64(time_per_class))
-                .with_egraph(runner.egraph)
+                .with_egraph(runner.egraph);
         }
 
         if use_iteration_check {
@@ -711,7 +661,7 @@ pub fn prove_expression_with_file_classes(
                     i
                 );
             }
-            best_expr = Some(goals[proved_goal_index].to_string())
+            best_expr = Some(goals[proved_goal_index].to_string());
         } else {
             let mut extractor = Extractor::new(&runner.egraph, AstDepth);
             // We want to extract the best expression represented in the
@@ -732,7 +682,7 @@ pub fn prove_expression_with_file_classes(
             runner.print_report();
             println!(
                 "Execution took: {}\n",
-                format!("{} s", total_time).bright_green().bold()
+                format!("{total_time} s").bright_green().bold()
             );
         }
         // If the expression is proved get the proving cluster and exit the loop.
@@ -744,9 +694,9 @@ pub fn prove_expression_with_file_classes(
 
     let stop_reason = match runner.stop_reason.unwrap() {
         StopReason::Saturated => "Saturation".to_string(),
-        StopReason::IterationLimit(iter) => format!("Iterations: {}", iter),
-        StopReason::NodeLimit(nodes) => format!("Node Limit: {}", nodes),
-        StopReason::TimeLimit(time) => format!("Time Limit : {}", time),
+        StopReason::IterationLimit(iter) => format!("Iterations: {iter}"),
+        StopReason::NodeLimit(nodes) => format!("Node Limit: {nodes}"),
+        StopReason::TimeLimit(time) => format!("Time Limit : {time}"),
         StopReason::Other(reason) => reason,
     };
     let result_struct = ResultStructure::new(
@@ -767,6 +717,11 @@ pub fn prove_expression_with_file_classes(
 }
 
 ///Checks if the variables passed match the confition specified for the impossible patterns.
+#[allow(
+    clippy::too_many_lines,
+    clippy::similar_names,
+    clippy::many_single_char_names
+)]
 pub fn impossible_conditions(
     condition: &str,
     variables: &Vec<&str>,
@@ -774,7 +729,7 @@ pub fn impossible_conditions(
     let mut vars = Vec::new();
     for var in variables {
         let v: Var = var.parse().unwrap();
-        vars.push(v)
+        vars.push(v);
     }
     let condition = condition.to_string();
     move |egraph, subst| match condition.as_str() {
@@ -1114,6 +1069,7 @@ macro_rules! write_npp {
 
 /// Prove an expression to true or false by using the Pulsing Caviar heuristic.
 #[allow(dead_code)]
+#[allow(clippy::too_many_lines)]
 pub fn prove_pulses(
     index: i32,
     start_expression: &str,
@@ -1139,9 +1095,8 @@ pub fn prove_pulses(
 
     if report {
         println!(
-            "\n====================================\nProving Expression:\n {}\n",
-            start_expression
-        )
+            "\n====================================\nProving Expression:\n {start_expression}\n"
+        );
     }
 
     let mut i = 0.0;
@@ -1252,9 +1207,9 @@ pub fn prove_pulses(
 
     let stop_reason = match runner.stop_reason.unwrap() {
         StopReason::Saturated => "Saturation".to_string(),
-        StopReason::IterationLimit(iter) => format!("Iterations: {}", iter),
-        StopReason::NodeLimit(nodes) => format!("Node Limit: {}", nodes),
-        StopReason::TimeLimit(time) => format!("Time Limit : {}", time),
+        StopReason::IterationLimit(iter) => format!("Iterations: {iter}"),
+        StopReason::NodeLimit(nodes) => format!("Node Limit: {nodes}"),
+        StopReason::TimeLimit(time) => format!("Time Limit : {time}"),
         StopReason::Other(reason) => reason,
     };
 
@@ -1264,7 +1219,7 @@ pub fn prove_pulses(
         "1/0".to_string(),
         result,
         best_expr.unwrap_or_default(),
-        ruleset_class as i64,
+        i64::from(ruleset_class),
         runner.iterations.len(),
         runner.egraph.total_number_of_nodes(),
         runner.iterations.iter().map(|i| i.n_rebuilds).sum(),
@@ -1305,9 +1260,8 @@ pub fn check_npp(egraph: &EGraph, start_id: Id) -> (bool, String) {
     // For each npp check if the empo matches the root eclass of the egraph
     for (impo_index, impo) in impossibles.iter().enumerate() {
         //check if the npp maches the root eclass of the egraph
-        let results = match impo.0.search_eclass(egraph, start_id) {
-            Option::Some(res) => res,
-            _ => continue,
+        let Option::Some(results) = impo.0.search_eclass(egraph, start_id) else {
+            continue;
         };
         // Run the condition function then return the npp if the condition is true.
         if results.substs.iter().any(|subst| (impo.1)(egraph, subst)) {
@@ -1321,6 +1275,7 @@ pub fn check_npp(egraph: &EGraph, start_id: Id) -> (bool, String) {
 
 ///Prove an expression using Pulses and the non-provable patterns.
 #[allow(dead_code)]
+#[allow(clippy::too_many_lines)]
 pub fn prove_pulses_npp(
     index: i32,
     start_expression: &str,
@@ -1346,9 +1301,8 @@ pub fn prove_pulses_npp(
 
     if report {
         println!(
-            "\n====================================\nProving Expression:\n {}\n",
-            start_expression
-        )
+            "\n====================================\nProving Expression:\n {start_expression}\n"
+        );
     }
 
     let mut i = 0.0;
@@ -1469,9 +1423,9 @@ pub fn prove_pulses_npp(
 
     let stop_reason = match runner.stop_reason.unwrap() {
         StopReason::Saturated => "Saturation".to_string(),
-        StopReason::IterationLimit(iter) => format!("Iterations: {}", iter),
-        StopReason::NodeLimit(nodes) => format!("Node Limit: {}", nodes),
-        StopReason::TimeLimit(time) => format!("Time Limit : {}", time),
+        StopReason::IterationLimit(iter) => format!("Iterations: {iter}"),
+        StopReason::NodeLimit(nodes) => format!("Node Limit: {nodes}"),
+        StopReason::TimeLimit(time) => format!("Time Limit : {time}"),
         StopReason::Other(reason) => reason,
     };
 
@@ -1481,7 +1435,7 @@ pub fn prove_pulses_npp(
         "1/0".to_string(),
         result,
         best_expr.unwrap_or_default(),
-        ruleset_class as i64,
+        i64::from(ruleset_class),
         runner.iterations.len(),
         runner.egraph.total_number_of_nodes(),
         runner.iterations.iter().map(|i| i.n_rebuilds).sum(),
@@ -1491,7 +1445,7 @@ pub fn prove_pulses_npp(
     )
 }
 
-/// prove_npp runs caviar with the non-provable patterns
+/// `prove_npp` runs caviar with the non-provable patterns
 #[allow(dead_code)]
 pub fn prove_npp(
     index: i32,
@@ -1515,9 +1469,8 @@ pub fn prove_npp(
     //print start expressions
     if report {
         println!(
-            "\n====================================\nProving Expression:\n {}\n",
-            start_expression
-        )
+            "\n====================================\nProving Expression:\n {start_expression}\n"
+        );
     }
     // Enable the use of the iterative check technique
     if use_iteration_check {
@@ -1596,9 +1549,9 @@ pub fn prove_npp(
     // Set the stop reason
     let stop_reason = match runner.stop_reason.unwrap() {
         StopReason::Saturated => "Saturation".to_string(),
-        StopReason::IterationLimit(iter) => format!("Iterations: {}", iter),
-        StopReason::NodeLimit(nodes) => format!("Node Limit: {}", nodes),
-        StopReason::TimeLimit(time) => format!("Time Limit : {}", time),
+        StopReason::IterationLimit(iter) => format!("Iterations: {iter}"),
+        StopReason::NodeLimit(nodes) => format!("Node Limit: {nodes}"),
+        StopReason::TimeLimit(time) => format!("Time Limit : {time}"),
         StopReason::Other(reason) => reason,
     };
     // Return a ResultStructure with all the information
@@ -1608,7 +1561,7 @@ pub fn prove_npp(
         "1/0".to_string(),
         result,
         best_expr.unwrap_or_default(),
-        ruleset_class as i64,
+        i64::from(ruleset_class),
         runner.iterations.len(),
         runner.egraph.total_number_of_nodes(),
         runner.iterations.iter().map(|i| i.n_rebuilds).sum(),

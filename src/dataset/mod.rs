@@ -1,5 +1,5 @@
 use crate::trs::{rules, ConstantFold, Math};
-use colored::*;
+use colored::Colorize;
 use csv::ReaderBuilder;
 use egg::{Pattern, RecExpr, Runner, Searcher};
 use json::object;
@@ -26,7 +26,7 @@ pub fn generate_dataset_par(
     let mut dataset = File::create("results/dataset.json").unwrap();
     let data = Arc::new(Mutex::new(Vec::new()));
     expressions.par_iter().for_each(|&expression| {
-        minimal_set_to_prove(expression, params, ruleset_id, reorder_count, &data)
+        minimal_set_to_prove(expression, params, ruleset_id, reorder_count, &data);
     });
     dataset
         .write_all(json::stringify(Arc::try_unwrap(data).unwrap().into_inner().unwrap()).as_bytes())
@@ -121,7 +121,7 @@ pub fn minimal_set_to_prove(
     }
 }
 
-/// Same as generate_dataset, but this time
+/// Same as `generate_dataset`, but this time
 /// the expression are passed without goals
 /// The goal is assumed to be either 0 or 1.
 #[allow(dead_code)]
@@ -133,7 +133,7 @@ pub fn generate_dataset_0_1_par(
     reorder_count: usize,
     batch_number: usize,
 ) {
-    let results_file_name = format!("results/dataset-batch-{}.json", batch_number);
+    let results_file_name = format!("results/dataset-batch-{batch_number}.json");
     let mut dataset = File::create(results_file_name).unwrap();
     let data = Arc::new(Mutex::new(Vec::new()));
     println!(
@@ -149,14 +149,14 @@ pub fn generate_dataset_0_1_par(
             reorder_count,
             &data,
             batch_number,
-        )
+        );
     });
     dataset
         .write_all(json::stringify(Arc::try_unwrap(data).unwrap().into_inner().unwrap()).as_bytes())
         .unwrap();
 }
 
-/// Same as minimal_set_to_prove, but this time
+/// Same as `minimal_set_to_prove`, but this time
 /// the expression are passed without goals
 /// The goal is assumed to be either 0 or 1.
 #[allow(dead_code)]
@@ -265,12 +265,12 @@ pub fn minimal_set_to_prove_0_1(
 /// dataset for big number of expressions.
 /// It starts by reading expressions from a CSV file
 /// that must have the format (id, expression) for each
-/// row. It reads batch_size expressions before passing
-/// them to generate_dataset_0_1_par, which generate the
+/// row. It reads `batch_size` expressions before passing
+/// them to `generate_dataset_0_1_par`, which generate the
 /// dataset for this batch of expressions and store it in a
 /// json file. Until the vector of expressions end.
-/// The continue_from_expr parameter can be used in case of failure.
-/// For example if we have 1 million expressions, our batch_size
+/// The `continue_from_expr` parameter can be used in case of failure.
+/// For example if we have 1 million expressions, our `batch_size`
 /// is set to 1000, and the execution fails after generating the
 /// dataset of 200 batched, we should relaunch the execution starting
 /// from the 200*1000 = 200,000th expression.
@@ -301,7 +301,7 @@ pub fn generation_execution(
                     reorder_count,
                     i / batch_size,
                 );
-                println!("{} expressions processed!", i);
+                println!("{i} expressions processed!");
                 expressions_vect = Vec::new();
             }
         }
@@ -315,6 +315,6 @@ pub fn generation_execution(
             reorder_count,
             i / batch_size + 1,
         );
-        println!("{} expressions processed!", i);
+        println!("{i} expressions processed!");
     }
 }
