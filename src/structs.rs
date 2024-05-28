@@ -5,9 +5,9 @@ use serde::Serialize;
 #[derive(Serialize, Debug)]
 /// The `structs` module contains a number of useful structs.
 
-///The `ResultStructure` type is used to represent the result of proving or simplifying an expression
+/// The `ResultStructure` type is used to represent the result of proving or simplifying an expression
 pub struct ResultStructure {
-    //index of the expression set to make debugging easier
+    // Index of the expression set to make debugging easier
     index: i32,
     // The expression to be proved or simplified
     start_expression: String,
@@ -17,15 +17,15 @@ pub struct ResultStructure {
     pub result: bool,
     // The simplest representation extracted
     best_expr: String,
-    //The id of the cluster that was used to prove the expression in case we used clusters
+    // The id of the cluster that was used to prove the expression in case we used clusters
     class: i64,
-    //Number of iterations used to prove the expression
+    // Number of iterations used to prove the expression
     iterations: usize,
-    //The size of the egraph used to prove the expression
+    // The size of the egraph used to prove the expression
     egraph_size: usize,
-    //The number of rebuilds used to prove the expression
+    // The number of rebuilds used to prove the expression
     rebuilds: usize,
-    //The time it took to prove the expression
+    // The time it took to prove the expression
     pub total_time: f64,
     // The reason the execution stopped
     stop_reason: String,
@@ -37,7 +37,7 @@ pub struct ResultStructure {
 
 #[allow(clippy::too_many_arguments)]
 impl ResultStructure {
-    //Constructor for the ResultStructure
+    // Constructor for the ResultStructure
     pub fn new(
         index: i32,
         start_expression: String,
@@ -68,22 +68,22 @@ impl ResultStructure {
             halide_data: None,
         }
     }
-
-    //adds index and the condition to the result
+    /// Adds index and the condition to the result
     pub fn add_index_condition(&mut self, index: i32, condition: String) {
         self.index = index;
         self.condition = Some(condition);
     }
 
+    /// Adds Halide Data to the result
     pub fn add_halide(&mut self, halide_data: Option<HalideData>) {
         self.halide_data = halide_data;
     }
 }
 
-//The `ExpressionStruct` type is used to represent an expression
+/// Used to represent an expression
 #[derive(Serialize, Debug)]
 pub struct ExpressionStruct {
-    //index of the expression
+    // Index of the expression
     pub index: i32,
     // the string of the expression
     pub expression: String,
@@ -91,6 +91,7 @@ pub struct ExpressionStruct {
     pub halide_data: Option<HalideData>,
 }
 
+/// Holds (optional) halide results
 #[derive(Serialize, Debug, Clone)]
 pub struct HalideData {
     // Halide's result for proving the expression
@@ -100,7 +101,6 @@ pub struct HalideData {
 }
 
 impl ExpressionStruct {
-    //Constructor of ExpressionStruct
     pub fn new(index: i32, expression: String, halide_data: Option<HalideData>) -> Self {
         Self {
             index,
@@ -110,10 +110,10 @@ impl ExpressionStruct {
     }
 }
 
-//The `Rule` type is used to represent a a Rule
+// The `Rule` type is used to represent a a Rule
 #[derive(Serialize, Debug)]
 pub struct Rule {
-    //index of the rule
+    // Index of the rule
     pub index: i32,
     // the LHS of the rule
     pub lhs: String,
@@ -124,7 +124,6 @@ pub struct Rule {
 }
 
 impl Rule {
-    // Constructor of Rule
     #[allow(dead_code)]
     pub fn new(index: i32, lhs: String, rhs: String, condition: Option<String>) -> Self {
         Self {
@@ -136,7 +135,7 @@ impl Rule {
     }
 }
 
-//a Structure used the result of  special expressions issued from halide for the implementation of the paper.
+// A Structure used the result of special expressions issued from halide for the implementation of the paper.
 #[derive(Serialize, Debug)]
 pub struct PaperResult {
     infix: String,

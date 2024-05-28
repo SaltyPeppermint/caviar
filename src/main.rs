@@ -15,10 +15,10 @@ use std::time::{Duration, Instant};
 
 use json::parse;
 
-//use crate::io::reader::read_expressions_paper;
-//use crate::io::writer::write_results_paper;
+// use crate::io::reader::read_expressions_paper;
+// use crate::io::writer::write_results_paper;
 use crate::io::reader::read_expressions;
-//use crate::io::writer::write_results;
+// use crate::io::writer::write_results;
 use crate::io::writer;
 use crate::structs::{ExpressionStruct, PaperResult, ResultStructure};
 
@@ -31,10 +31,10 @@ fn prove_expressions(
     use_iteration_check: bool,
     report: bool,
 ) -> Vec<ResultStructure> {
-    //Initialize the results vector.
+    // Initialize the results vector.
     let mut results = Vec::new();
 
-    //For each expression try to prove it then push the results into the results vector.
+    // For each expression try to prove it then push the results into the results vector.
     for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
         let mut res = trs::prove(
@@ -60,9 +60,9 @@ fn prove_expressions_pulses(
     use_iteration_check: bool,
     report: bool,
 ) -> Vec<ResultStructure> {
-    //Initialize the results vector.
+    // Initialize the results vector.
     let mut results = Vec::new();
-    //For each expression try to prove it using Caviar with Pulses then push the results into the results vector.
+    // For each expression try to prove it using Caviar with Pulses then push the results into the results vector.
     for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
         let mut res = trs::prove_pulses(
@@ -89,10 +89,10 @@ fn prove_expressions_npp(
     use_iteration_check: bool,
     report: bool,
 ) -> Vec<ResultStructure> {
-    //Initialize the results vector.
+    // Initialize the results vector.
     let mut results = Vec::new();
 
-    //For each expression try to prove it using Caviar with NPP then push the results into the results vector.
+    // For each expression try to prove it using Caviar with NPP then push the results into the results vector.
     for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
         let mut res = trs::prove_npp(
@@ -119,7 +119,7 @@ fn prove_expressions_pulses_npp_paper(
     use_iteration_check: bool,
     report: bool,
 ) -> Vec<PaperResult> {
-    //Initialize the results vector.
+    // Initialize the results vector.
     let mut results = Vec::new();
     // For each expression try to prove it using Caviar with Pulses and NPP then push the results into the results vector.
     for expression in exprs_vect {
@@ -143,7 +143,7 @@ fn prove_expressions_pulses_npp_paper(
     results
 }
 
-///Runs Caviar with Pulses and NPP on the expressions passed as vector using the different params passed.
+/// Runs Caviar with Pulses and NPP on the expressions passed as vector using the different params passed.
 fn prove_expressions_pulses_npp(
     exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
@@ -152,7 +152,7 @@ fn prove_expressions_pulses_npp(
     use_iteration_check: bool,
     report: bool,
 ) -> Vec<ResultStructure> {
-    //Initialize the results vector.
+    // Initialize the results vector.
     let mut results = Vec::new();
     // For each expression try to prove it using Caviar with Pulses and NPP then push the results into the results vector.
     for expression in exprs_vect {
@@ -180,13 +180,13 @@ fn prove_clusters(
     use_iteration_check: bool,
     report: bool,
 ) {
-    //Read the clusters from the files generated using Python.
+    // Read the clusters from the files generated using Python.
     let mut file = File::open(path).unwrap();
     let mut s = String::new();
     file.read_to_string(&mut s).unwrap();
     let classes = parse(&s).unwrap();
 
-    //Initialization
+    // Initialization
     let mut results_structs = Vec::new();
     let mut results_proving_class = Vec::new();
     let mut results_exec_time = Vec::new();
@@ -195,7 +195,7 @@ fn prove_clusters(
     let mut prove_result: (ResultStructure, i64, Duration);
     let mut i;
 
-    //For each expression try to prove it using the clusters generated one after the other.
+    // For each expression try to prove it using the clusters generated one after the other.
     for expression in exprs_vect {
         if report {
             println!("Starting Expression: {}", expression.index);
@@ -235,7 +235,7 @@ fn prove_clusters(
         println!("Execution time : |{duration}| |{exec_time}|");
     }
 
-    //Write the results into the results csv file.
+    // Write the results into the results csv file.
     writer::write_results(
         &format!(
             "results/k_{}_class_analysis_results_params_{}_{}_{}_exec_{}.csv",
@@ -257,10 +257,10 @@ fn simplify_expressions(
     params: &Params,
     report: bool,
 ) -> Vec<ResultStructure> {
-    //Initialize the results vector.
+    // Initialize the results vector.
     let mut results = Vec::new();
 
-    //For each expression try to prove it then push the results into the results vector.
+    // For each expression try to prove it then push the results into the results vector.
     for expression in exprs_vect {
         println!("Starting Expression: {}", expression.index);
         let mut res = trs::simplify(
@@ -283,7 +283,7 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: ProveStrategy) {
             let results = prove_expressions(
                 &expression_vect,
                 -1,
-                &params,
+                params,
                 prove_params.use_iteration_check,
                 prove_params.report,
             );
@@ -295,7 +295,7 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: ProveStrategy) {
                 &expression_vect,
                 -1,
                 threshold,
-                &params,
+                params,
                 prove_params.use_iteration_check,
                 prove_params.report,
             );
@@ -306,7 +306,7 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: ProveStrategy) {
             let results = prove_expressions_npp(
                 &expression_vect,
                 -1,
-                &params,
+                params,
                 prove_params.use_iteration_check,
                 prove_params.report,
             );
@@ -318,7 +318,7 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: ProveStrategy) {
                 &expression_vect,
                 -1,
                 threshold,
-                &params,
+                params,
                 prove_params.use_iteration_check,
                 prove_params.report,
             );
@@ -333,7 +333,7 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: ProveStrategy) {
             prove_clusters(
                 &classes_file,
                 &expression_vect,
-                &params,
+                params,
                 iterations_count,
                 prove_params.use_iteration_check,
                 prove_params.report,
@@ -363,7 +363,6 @@ fn main() {
                 continue_from_expr,
             );
         }
-
         Mode::Simplify { report } => {
             let expression_vect = read_expressions(&args.params.expressions_file).unwrap();
             let results = simplify_expressions(&expression_vect, -1, &args.params, report);
@@ -374,12 +373,4 @@ fn main() {
             prove_params,
         } => prove(&args.params, &prove_params, strategy),
     }
-    // } else {
-    //     //Quick executions with default parameters
-    //     let params = get_runner_params(1).unwrap();
-    //     let (start, end) = get_start_end().unwrap();
-    //     println!("Simplifying expression:\n {start}\n to {end}");
-    //     //Example of NPP execution with default parameters
-    //     println!("{:?}", simplify(-1, &start, -1, params, true));
-    // }
 }

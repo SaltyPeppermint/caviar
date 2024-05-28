@@ -48,19 +48,19 @@ pub struct ProveParams {
 pub enum ProveStrategy {
     /// Prove expressions using Caviar with/without ILC
     Simple,
-    /// Prove expressions using Caviar with pulses and with/without ILC.
+    /// Prove expressions using Caviar with pulses.
     Pulse {
         #[arg(short, long)]
         threshold: f64,
     },
-    /// Prove expressions using Caviar with NPP and with/without ILC.
+    /// Prove expressions using Caviar with NPP.
     Npp,
-    /// Prove expressions using Caviar with Pulses and NPP and with pulses and with/without ILC.
+    /// Prove expressions using Caviar with Pulses and NPP and with pulses.
     PulseNpp {
         #[arg(short, long)]
         threshold: f64,
     },
-    /// Prove expressions using Caviar with clusters of rules and with pulses and with/without ILC.
+    /// Prove expressions using Caviar with clusters of rules and with pulses.
     Clusters {
         #[arg(short, long)]
         classes_file: String,

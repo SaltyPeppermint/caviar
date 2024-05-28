@@ -44,7 +44,7 @@ pub fn read_expressions(file_path: &str) -> anyhow::Result<Vec<ExpressionStruct>
     Ok(expressions_vect)
 }
 
-///Reads the expressions in the format specified for the work done for the paper variant.
+/// Reads the expressions in the format specified for the work done for the paper variant.
 #[allow(dead_code)]
 pub fn read_expressions_paper(file_path: &str) -> anyhow::Result<Vec<(String, String)>> {
     let mut expressions_vect = Vec::new();
@@ -87,7 +87,7 @@ pub fn read_rules(file_path: &str) -> anyhow::Result<Vec<Rule>> {
 // Gets the params passed to the runner from the command line
 // #[allow(clippy::unnecessary_wraps)]
 // pub fn get_runner_params(start: usize) -> Result<(usize, usize, f64), Box<dyn Error>> {
-//     //Get the number of iterations from the command line else initialize it to a default value
+//     // Get the number of iterations from the command line else initialize it to a default value
 //     let iter = match env::args_os().nth(start) {
 //         None => 30,
 //         Some(i) => i.into_string().unwrap().parse::<usize>().unwrap(),
@@ -99,7 +99,7 @@ pub fn read_rules(file_path: &str) -> anyhow::Result<Vec<Rule>> {
 //         Some(i) => i.into_string().unwrap().parse::<usize>().unwrap(),
 //     };
 
-//     //Get the timelimit from the command line else initialize it to a default value
+//     // Get the timelimit from the command line else initialize it to a default value
 //     let time = match env::args_os().nth(start + 2) {
 //         None => 3.0,
 //         Some(i) => i.into_string().unwrap().parse::<f64>().unwrap(),

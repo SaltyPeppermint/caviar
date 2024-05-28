@@ -4,7 +4,7 @@ use egg::rewrite as rw;
 pub type Rewrite = egg::Rewrite<Math, ConstantFold>;
 pub fn mul() -> Vec<Rewrite> {
     vec![
-        //MUL RULES
+        // MUL RULES
         rw!("mul-comm"      ; "(* ?a ?b)"                   => "(* ?b ?a)"),
         rw!("mul-assoc"     ; "(* ?a (* ?b ?c))"            => "(* (* ?a ?b) ?c)"),
         rw!("mul-zero"      ; "(* ?a 0)"                    => "0"),

@@ -282,7 +282,6 @@ pub fn generation_execution(
 ) {
     let mut expressions_vect = Vec::new();
     let file = File::open(&params.expressions_file).unwrap();
-    //let mut rdr = csv::Reader::from_reader(file);
     let mut rdr = ReaderBuilder::new().delimiter(b',').from_reader(file);
     let mut i = 0;
     for result in rdr.records() {
