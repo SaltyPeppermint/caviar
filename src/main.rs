@@ -9,16 +9,8 @@ mod trs;
 
 use argparse::{CliArgs, Mode, Params, ProveParams, ProveStrategy};
 use clap::Parser;
-use std::fs::File;
-use std::io::Read;
-use std::time::{Duration, Instant};
 
-use json::parse;
-
-// use crate::io::reader::read_expressions_paper;
-// use crate::io::writer::write_results_paper;
 use crate::io::reader::read_expressions;
-// use crate::io::writer::write_results;
 use crate::io::writer;
 use crate::structs::{ExpressionStruct, PaperResult, ResultStructure};
 
@@ -170,86 +162,6 @@ fn prove_expressions_pulses_npp(
     results
 }
 
-/// Runs Caviar using hierarchical clusters of rules to prove the expressions passed as vector using the different params passed.
-#[allow(clippy::cast_precision_loss)]
-fn prove_clusters(
-    path: &str,
-    exprs_vect: &[ExpressionStruct],
-    params: &Params,
-    count: usize,
-    use_iteration_check: bool,
-    report: bool,
-) {
-    // Read the clusters from the files generated using Python.
-    let mut file = File::open(path).unwrap();
-    let mut s = String::new();
-    file.read_to_string(&mut s).unwrap();
-    let classes = parse(&s).unwrap();
-
-    // Initialization
-    let mut results_structs = Vec::new();
-    let mut results_proving_class = Vec::new();
-    let mut results_exec_time = Vec::new();
-    let start_t = Instant::now();
-    let mut average;
-    let mut prove_result: (ResultStructure, i64, Duration);
-    let mut i;
-
-    // For each expression try to prove it using the clusters generated one after the other.
-    for expression in exprs_vect {
-        if report {
-            println!("Starting Expression: {}", expression.index);
-        }
-        i = 0;
-        average = 0.0;
-        loop {
-            prove_result = trs::prove_expression_with_file_classes(
-                &classes,
-                params,
-                expression.index,
-                &expression.expression.clone(),
-                use_iteration_check,
-                report,
-            )
-            .unwrap();
-            if report {
-                println!("Iter: {} | time: {}", i, prove_result.0.total_time);
-            }
-            average += prove_result.0.total_time;
-            i += 1;
-            if i == count || !prove_result.0.result {
-                break;
-            }
-        }
-        prove_result.0.total_time = average / (i as f64);
-        results_structs.push(prove_result.0);
-        results_proving_class.push(prove_result.1);
-        results_exec_time.push(prove_result.2);
-        if report {
-            println!("Average time: {}", average / (i as f64));
-        }
-    }
-    let duration = start_t.elapsed().as_secs();
-    let exec_time: f64 = results_exec_time.iter().map(|i| i.as_secs() as f64).sum();
-    if report {
-        println!("Execution time : |{duration}| |{exec_time}|");
-    }
-
-    // Write the results into the results csv file.
-    writer::write_results(
-        &format!(
-            "results/k_{}_class_analysis_results_params_{}_{}_{}_exec_{}.csv",
-            classes[0].len(),
-            params.iter,
-            params.nodes,
-            params.time,
-            duration
-        ),
-        &results_structs,
-    )
-    .unwrap();
-}
-
 /// Runs Simple Caviar to simplify the expressions passed as vector using the different params passed.
 fn simplify_expressions(
     exprs_vect: &[ExpressionStruct],
@@ -276,7 +188,7 @@ fn simplify_expressions(
     results
 }
 
-fn prove(params: &Params, prove_params: &ProveParams, strategy: ProveStrategy) {
+fn prove(params: &Params, prove_params: &ProveParams, strategy: &ProveStrategy) {
     match strategy {
         ProveStrategy::Simple {} => {
             let expression_vect = read_expressions(&params.expressions_file).unwrap();
@@ -294,7 +206,7 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: ProveStrategy) {
             let results = prove_expressions_pulses(
                 &expression_vect,
                 -1,
-                threshold,
+                *threshold,
                 params,
                 prove_params.use_iteration_check,
                 prove_params.report,
@@ -317,27 +229,13 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: ProveStrategy) {
             let results = prove_expressions_pulses_npp(
                 &expression_vect,
                 -1,
-                threshold,
+                *threshold,
                 params,
                 prove_params.use_iteration_check,
                 prove_params.report,
             );
             writer::write_results(&format!("tmp/results_beh_npp_{threshold}.csv"), &results)
                 .unwrap();
-        }
-        ProveStrategy::Clusters {
-            classes_file,
-            iterations_count,
-        } => {
-            let expression_vect = read_expressions(&params.expressions_file).unwrap();
-            prove_clusters(
-                &classes_file,
-                &expression_vect,
-                params,
-                iterations_count,
-                prove_params.use_iteration_check,
-                prove_params.report,
-            );
         }
     }
 }
@@ -371,6 +269,6 @@ fn main() {
         Mode::Prove {
             strategy,
             prove_params,
-        } => prove(&args.params, &prove_params, strategy),
+        } => prove(&args.params, &prove_params, &strategy),
     }
 }

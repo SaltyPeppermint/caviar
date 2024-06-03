@@ -3,10 +3,6 @@ use clap::Parser;
 use clap::Subcommand;
 
 /// Parser for the cli options
-// Example args:
-// cargo run --release dataset `results/expressions_egg.csv` 1000000 10000000 5 5 3 0 4
-// cargo run --release `prove_exprs_passes` `data/prefix/expressions_egg.csv` 10000000 10000000 3 $i
-// cargo run --release `prove_exprs_fast` `data/prefix/expressions_egg.csv` 10000000 10000000 3
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct CliArgs {
@@ -59,13 +55,6 @@ pub enum ProveStrategy {
     PulseNpp {
         #[arg(short, long)]
         threshold: f64,
-    },
-    /// Prove expressions using Caviar with clusters of rules and with pulses.
-    Clusters {
-        #[arg(short, long)]
-        classes_file: String,
-        #[arg(short, long)]
-        iterations_count: usize,
     },
 }
 

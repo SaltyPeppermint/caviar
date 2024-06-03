@@ -6,7 +6,6 @@ use egg::{
     define_language, Analysis, AstDepth, AstSize, Extractor, Id, Pattern, RecExpr, Runner,
     Searcher, StopReason, Subst, Symbol, Var,
 };
-use json::JsonValue;
 
 use crate::argparse::Params;
 use crate::structs::{ResultStructure, Rule};
@@ -192,46 +191,6 @@ pub fn compare_c0_c1(
             _ => false,
         })
     }
-}
-
-/// Takes a JSON array of rules ids and return the vector of their associated Rewrites
-#[allow(clippy::unnecessary_wraps, clippy::similar_names)]
-pub fn filtered_rules(class: &json::JsonValue) -> anyhow::Result<Vec<Rewrite>> {
-    let add_rules = crate::rules::add::add();
-    let and_rules = crate::rules::and::and();
-    let andor_rules = crate::rules::andor::andor();
-    let div_rules = crate::rules::div::div();
-    let eq_rules = crate::rules::eq::eq();
-    let ineq_rules = crate::rules::ineq::ineq();
-    let lt_rules = crate::rules::lt::lt();
-    let max_rules = crate::rules::max::max();
-    let min_rules = crate::rules::min::min();
-    let modulo_rules = crate::rules::modulo::modulo();
-    let mul_rules = crate::rules::mul::mul();
-    let not_rules = crate::rules::not::not();
-    let or_rules = crate::rules::or::or();
-    let sub_rules = crate::rules::sub::sub();
-
-    let all_rules: Vec<Rewrite> = [
-        &add_rules[..],
-        &and_rules[..],
-        &andor_rules[..],
-        &div_rules[..],
-        &eq_rules[..],
-        &ineq_rules[..],
-        &lt_rules[..],
-        &max_rules[..],
-        &min_rules[..],
-        &modulo_rules[..],
-        &mul_rules[..],
-        &not_rules[..],
-        &or_rules[..],
-        &sub_rules[..],
-    ]
-    .concat();
-    let rules_iter = all_rules.into_iter();
-    let rules = rules_iter.filter(|rule| class.contains(rule.name()));
-    Ok(rules.collect())
 }
 
 /// takes an class of rules to use then returns the vector of their associated Rewrites
@@ -582,138 +541,6 @@ pub fn prove_rule(
     // Add the index of the rule and its condition to the result.
     result.add_index_condition(rule.index, rule.condition.as_ref().unwrap().clone());
     result
-}
-
-/// Prove an expression to true or false using clusters of rules read from a file
-#[allow(clippy::cast_precision_loss, clippy::cast_possible_wrap)]
-pub fn prove_expression_with_file_classes(
-    classes: &JsonValue,
-    params: &Params,
-    index: i32,
-    start_expression: &str,
-    use_iteration_check: bool,
-    report: bool,
-) -> anyhow::Result<(ResultStructure, i64, Duration)> {
-    let start: RecExpr<Math> = start_expression.parse().unwrap();
-    let mut result: bool = false;
-    let mut runner: egg::Runner<Math, ConstantFold>;
-    let mut rules: Vec<Rewrite>;
-    let mut proved_goal_index = 0;
-    let mut best_expr = Some(String::new());
-    let mut proving_class = -1;
-    // First iteration of the runner.
-    let end_1: Pattern<Math> = "1".parse().unwrap();
-    let end_0: Pattern<Math> = "0".parse().unwrap();
-    let goals = [end_0.clone(), end_1.clone()];
-    let mut total_time: f64 = 0.0;
-
-    let time_per_class = params.time / (classes.len() as f64);
-
-    // rules = filtered_rules(&classes[0])?;
-    let start_t = Instant::now();
-    runner = Runner::default()
-        .with_iter_limit(params.iter)
-        .with_node_limit(params.nodes)
-        .with_time_limit(Duration::from_secs_f64(time_per_class))
-        .with_expr(&start);
-    let id = runner.egraph.find(*runner.roots.last().unwrap());
-    // End first iteration
-
-    // Run the runner using the rulesets extracted from the file.
-    for (i, class) in classes.members().enumerate() {
-        rules = filtered_rules(class)?;
-        if i > 0 {
-            // Initialize the runner with the new ruleset.
-            runner = Runner::default()
-                .with_iter_limit(params.iter)
-                .with_node_limit(params.nodes)
-                .with_time_limit(Duration::from_secs_f64(time_per_class))
-                .with_egraph(runner.egraph);
-        }
-
-        if use_iteration_check {
-            runner = runner.run_check_iteration_id(rules.iter(), &goals, id);
-        } else {
-            runner = runner.run(rules.iter());
-        }
-        // Get the execution time of the cluster of rules.
-        let class_time: f64 = runner.iterations.iter().map(|i| i.total_time).sum();
-
-        // Get the total execution of all executed clusters.
-        total_time += class_time;
-
-        // Check if the goal is contained in the root eclass of the egraph.
-        for (goal_index, goal) in goals.iter().enumerate() {
-            let boolean = (goal.search_eclass(&runner.egraph, id)).is_none();
-            if !boolean {
-                result = true;
-                proved_goal_index = goal_index;
-                break;
-            }
-        }
-
-        if result {
-            if report {
-                println!(
-                    "{}\n{:?}\n class {}",
-                    "Proved goal:".bright_green().bold(),
-                    goals[proved_goal_index].to_string(),
-                    i
-                );
-            }
-            best_expr = Some(goals[proved_goal_index].to_string());
-        } else {
-            let mut extractor = Extractor::new(&runner.egraph, AstDepth);
-            // We want to extract the best expression represented in the
-            // same e-class as our initial expression, not from the whole e-graph.
-            // Luckily the runner stores the eclass Id where we put the initial expression.
-            let (_, best_exprr) = extractor.find_best(id);
-            best_expr = Some(best_exprr.to_string());
-
-            if report {
-                println!("{}\n", "Could not prove any goal:".bright_red().bold(),);
-                println!(
-                    "Best Expr: {}",
-                    best_exprr.to_string().bright_green().bold()
-                );
-            }
-        }
-        if report {
-            runner.print_report();
-            println!(
-                "Execution took: {}\n",
-                format!("{total_time} s").bright_green().bold()
-            );
-        }
-        // If the expression is proved get the proving cluster and exit the loop.
-        if result {
-            proving_class = i as i64;
-            break;
-        }
-    }
-
-    let stop_reason = match runner.stop_reason.unwrap() {
-        StopReason::Saturated => "Saturation".to_string(),
-        StopReason::IterationLimit(iter) => format!("Iterations: {iter}"),
-        StopReason::NodeLimit(nodes) => format!("Node Limit: {nodes}"),
-        StopReason::TimeLimit(time) => format!("Time Limit : {time}"),
-        StopReason::Other(reason) => reason,
-    };
-    let result_struct = ResultStructure::new(
-        index,
-        start_expression.to_string(),
-        "1/0".to_string(),
-        result,
-        best_expr.unwrap_or_default(),
-        proving_class,
-        runner.iterations.len(),
-        runner.egraph.total_number_of_nodes(),
-        runner.iterations.iter().map(|i| i.n_rebuilds).sum(),
-        total_time,
-        stop_reason,
-        None,
-    );
-    Ok((result_struct, proving_class, start_t.elapsed()))
 }
 
 /// Checks if the variables passed match the confition specified for the impossible patterns.
