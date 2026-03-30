@@ -10,7 +10,7 @@ use egg::{
     Pattern, PatternAst, RecExpr, Rewrite, Runner, Searcher, StopReason, Subst,
 };
 
-const OFFSET: usize = 3; // AUTOTUNE THIS
+// const OFFSET: usize = 3; // AUTOTUNE THIS
 
 /// Runs Caviar with NPP on the expressions passed as vector using the different params passed.
 #[allow(dead_code)]
@@ -18,6 +18,7 @@ pub fn prove_expression_detour(
     exprs_vect: &[ExpressionStruct],
     ruleset_class: i8,
     params: &Params,
+    offset: usize,
     report: bool,
 ) -> Vec<ResultStructure> {
     // Initialize the results vector.
@@ -32,6 +33,7 @@ pub fn prove_expression_detour(
             ruleset_class,
             params,
             report,
+            offset,
         );
         res.add_halide(expression.halide_data.clone());
         results.push(res);
@@ -46,6 +48,7 @@ fn detour_prove(
     ruleset_class: i8,
     params: &Params,
     print_report: bool,
+    offset: usize,
 ) -> ResultStructure {
     // Parse the input expression and the goals
     let start: RecExpr<Math> = start_expression.parse().unwrap();
@@ -78,6 +81,7 @@ fn detour_prove(
             &mut egraph,
             stop,
             params.nodes,
+            offset,
         );
         if egraph.total_size() > params.nodes {
             report.stop_reason = StopReason::NodeLimit(egraph.total_size());
@@ -170,9 +174,10 @@ pub fn detour_step<L: Language, N: Analysis<L> + Default>(
     eg: &mut EGraph<L, N>,
     stop: Instant,
     node_limit: usize,
+    offset: usize,
 ) {
     if i.is_multiple_of(2) {
-        pat_detour_eqsat_step(roots, rws, eg, stop, node_limit);
+        pat_detour_eqsat_step(roots, rws, eg, stop, node_limit, offset);
     } else {
         let egr = std::mem::take(eg);
         let mut runner = Runner::<L, N, ()>::new(N::default())
@@ -191,6 +196,7 @@ fn pat_detour_eqsat_step<L: Language, N: Analysis<L>>(
     eg: &mut EGraph<L, N>,
     stop: Instant,
     node_limit: usize,
+    offset: usize,
 ) {
     let ex = Extractor::new(eg, AstSize);
     let ctxt_cost = compute_ctxt_costs(roots, eg, &ex);
@@ -235,7 +241,7 @@ fn pat_detour_eqsat_step<L: Language, N: Analysis<L>>(
 
     'outer: for (full_cost, new_apps) in matches {
         if let Some(found) = found_cost {
-            if full_cost > found + OFFSET {
+            if full_cost > found + offset {
                 break;
             }
         }

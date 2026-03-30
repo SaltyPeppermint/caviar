@@ -57,7 +57,8 @@ pub enum ProveStrategy {
         threshold: f64,
     },
     Detour {
-        cost: usize,
+        #[arg(short, long, default_value_t = 3)]
+        offset: usize,
     },
 }
 

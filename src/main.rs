@@ -238,12 +238,17 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: &ProveStrategy) 
             writer::write_results(&format!("tmp/results_beh_npp_{threshold}.csv"), &results)
                 .unwrap();
         }
-        ProveStrategy::Detour { cost } => {
+        ProveStrategy::Detour { offset } => {
             let expression_vect = read_expressions(&params.expressions_file).unwrap();
             // TODO: ILC CHECK, missing from current impl
-            let results =
-                detour::prove_expression_detour(&expression_vect, -1, params, prove_params.report);
-            writer::write_results(&format!("tmp/detour_cost_{cost}.csv"), &results).unwrap();
+            let results = detour::prove_expression_detour(
+                &expression_vect,
+                -1,
+                params,
+                *offset,
+                prove_params.report,
+            );
+            writer::write_results(&format!("tmp/detour_offset_{offset}.csv"), &results).unwrap();
         }
     }
 }
