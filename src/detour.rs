@@ -189,7 +189,6 @@ pub fn detour_step<L: Language, N: Analysis<L> + Default>(
         *eg = std::mem::take(&mut runner.egraph);
     }
 }
-
 fn pat_detour_eqsat_step<L: Language, N: Analysis<L>>(
     roots: &[Id],
     rws: &[Rewrite<L, N>],
@@ -220,7 +219,7 @@ fn pat_detour_eqsat_step<L: Language, N: Analysis<L>>(
             for subst in m.substs {
                 let pat_cost = pat_cost(lhs_pat, &subst, &ex);
                 // We don't subtract the root cost here, it's a constant offset, so why would we.
-                let cx_cost = *ctxt_cost.get(&lhs).unwrap();
+                let cx_cost = *ctxt_cost.get(&lhs).unwrap_or(&100_000_000); // this is the cost you get from not being able to reach any root.
                 let detour_cost = cx_cost + pat_cost;
                 matches.entry(detour_cost).or_default();
                 matches
@@ -247,7 +246,8 @@ fn pat_detour_eqsat_step<L: Language, N: Analysis<L>>(
         }
         for (rw_i, lhs, subst, _cx_cost, _pat_cost) in &new_apps {
             let rw = &rws[*rw_i];
-            rw.applier.apply_one(eg, *lhs, subst, None, rw.name);
+            let pat_ast = rw.searcher.get_pattern_ast();
+            rw.applier.apply_one(eg, *lhs, subst, pat_ast, rw.name);
             if eg_data(eg) != og_data {
                 found_cost = Some(full_cost);
             }
