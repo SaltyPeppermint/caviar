@@ -72,7 +72,7 @@ fn detour_prove(
     let mut report = Runner::<Math, ()>::new(()).run([]).report(); // fake report
     let mut i = 0;
 
-    loop {
+    'outer: loop {
         i += 1;
         crate::detour::detour_step(
             i,
@@ -85,22 +85,21 @@ fn detour_prove(
         );
         if egraph.total_size() > params.nodes {
             report.stop_reason = StopReason::NodeLimit(egraph.total_size());
-            break;
+            break 'outer;
         }
         if std::time::Instant::now() > stop {
             report.stop_reason = StopReason::TimeLimit(start.elapsed().as_secs_f64());
-            break;
+            break 'outer;
         }
 
         let id = egraph.find(root);
         // Check if the end expression matches any representation of the root eclass.
         for (goal_index, goal) in goals.iter().enumerate() {
-            let boolean = (goal.search_eclass(&egraph, id)).is_none();
-            if !boolean {
+            if goal.search_eclass(&egraph, id).is_some() {
                 found = true;
                 proved_goal_index = goal_index;
                 report.stop_reason = StopReason::Other("Goal reached!".to_string());
-                break;
+                break 'outer;
             }
         }
 
