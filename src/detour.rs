@@ -67,7 +67,7 @@ fn detour_prove(
         );
     }
 
-    let start = std::time::Instant::now();
+    let start = Instant::now();
     let stop = start + Duration::from_secs_f64(params.time);
     let mut report = Runner::<Math, ()>::new(()).run([]).report(); // fake report
     let mut i = 0;
@@ -87,7 +87,7 @@ fn detour_prove(
             report.stop_reason = StopReason::NodeLimit(egraph.total_size());
             break 'outer;
         }
-        if std::time::Instant::now() > stop {
+        if Instant::now() > stop {
             report.stop_reason = StopReason::TimeLimit(start.elapsed().as_secs_f64());
             break 'outer;
         }
@@ -105,6 +105,11 @@ fn detour_prove(
 
         egraph.rebuild();
     }
+    report.memo_size = egraph.total_size();
+    report.egraph_nodes = egraph.total_number_of_nodes();
+    report.egraph_classes = egraph.number_of_classes();
+    report.iterations = i;
+    report.total_time = start.elapsed().as_secs_f64();
 
     if found {
         if print_report {
@@ -139,16 +144,8 @@ fn detour_prove(
 
     let total_time = start.elapsed().as_secs_f64();
     if print_report {
-        println!("{report}");
+        println!("Report (search, apply and rebuild time are fake):\n{report}");
     }
-
-    let stop_reason = match report.stop_reason {
-        StopReason::Saturated => "Saturation".to_string(),
-        StopReason::IterationLimit(iter) => format!("Iterations: {iter}"),
-        StopReason::NodeLimit(nodes) => format!("Node Limit: {nodes}"),
-        StopReason::TimeLimit(time) => format!("Time Limit : {time}"),
-        StopReason::Other(reason) => reason,
-    };
 
     ResultStructure::new(
         index,
@@ -161,9 +158,20 @@ fn detour_prove(
         egraph.total_number_of_nodes(),
         i,
         total_time,
-        stop_reason,
+        fmt_stop_reason(&report.stop_reason),
         None,
     )
+}
+
+fn fmt_stop_reason(stop_reason: &StopReason) -> String {
+    let stop_reason = match stop_reason {
+        StopReason::Saturated => "Saturation".to_string(),
+        StopReason::IterationLimit(iter) => format!("Iterations: {iter}"),
+        StopReason::NodeLimit(nodes) => format!("Node Limit: {nodes}"),
+        StopReason::TimeLimit(time) => format!("Time Limit : {time}"),
+        StopReason::Other(reason) => reason.to_owned(),
+    };
+    stop_reason
 }
 
 pub fn detour_step<L: Language, N: Analysis<L> + Default>(
