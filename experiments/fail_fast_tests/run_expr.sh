@@ -1,3 +1,5 @@
 #!/bin/bash
-./target/release/caviar prove_exprs_fast_passes ./data/prefix/expressions_egg.csv 10000000 10000000 3 0.1
-./target/release/caviar prove_exprs_fast ./data/prefix/expressions_egg.csv 10000000 10000000 3
+./target/release/caviar --expressions-file ./data/prefix/expressions_egg.csv -i 10000000 -n 10000000 --time 3 prove pulse --threshold 0.1
+./target/release/caviar --expressions-file ./data/prefix/expressions_egg.csv -i 10000000 -n 10000000 --time 3 prove pulse-npp --threshold 0.1
+./target/release/caviar --expressions-file ./data/prefix/expressions_egg.csv -i 10000000 -n 10000000 --time 3 prove npp
+./target/release/caviar --expressions-file ./data/prefix/expressions_egg.csv -i 10000000 -n 10000000 --time 3 prove simple
