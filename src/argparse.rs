@@ -56,6 +56,9 @@ pub enum ProveStrategy {
         #[arg(short, long)]
         threshold: f64,
     },
+    Detour {
+        cost: usize,
+    },
 }
 
 /// Subcommands for the specific modes

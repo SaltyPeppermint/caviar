@@ -2,6 +2,7 @@
 
 mod argparse;
 mod dataset;
+mod detour;
 mod io;
 mod rules;
 mod structs;
@@ -236,6 +237,13 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: &ProveStrategy) 
             );
             writer::write_results(&format!("tmp/results_beh_npp_{threshold}.csv"), &results)
                 .unwrap();
+        }
+        ProveStrategy::Detour { cost } => {
+            let expression_vect = read_expressions(&params.expressions_file).unwrap();
+            // TODO: ILC CHECK, missing from current impl
+            let results =
+                detour::prove_expression_detour(&expression_vect, -1, params, prove_params.report);
+            writer::write_results(&format!("tmp/detour_cost_{cost}.csv"), &results).unwrap();
         }
     }
 }
