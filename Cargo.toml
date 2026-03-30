@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 # egg = { git = "https://github.com/caviar-trs/egg", branch = "check_equivalence_iteration_level" }
-egg = { git = "https://github.com/caviar-trs/egg", branch = "fail_fast" }
+egg = { git = "https://github.com/saltypeppermint/egg", branch = "caviar-patch" }
 # egg = { path="../egg" }
 
 ordered-float = "1"

@@ -97,7 +97,7 @@ pub fn minimal_set_to_prove(
         ruleset_copy_names = ruleset_minimal
             .clone()
             .into_iter()
-            .map(|rule| rule.name.clone())
+            .map(|rule| rule.name.to_string())
             .rev()
             .collect();
         data_object = object! {
@@ -230,7 +230,7 @@ pub fn minimal_set_to_prove_0_1(
         let ruleset_copy_names: Vec<String> = ruleset_minimal
             .clone()
             .into_iter()
-            .map(|rule| rule.name.clone())
+            .map(|rule| rule.name.to_string())
             .rev()
             .collect();
         data_object = object! {

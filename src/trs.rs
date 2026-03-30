@@ -1,10 +1,10 @@
 use std::time::Duration;
-use std::{cmp::Ordering, time::Instant};
+use std::time::Instant;
 
 use colored::Colorize;
 use egg::{
-    define_language, Analysis, AstDepth, AstSize, Extractor, Id, Pattern, RecExpr, Runner,
-    Searcher, StopReason, Subst, Symbol, Var,
+    define_language, Analysis, AstDepth, AstSize, DidMerge, Extractor, Id, Pattern, RecExpr,
+    Runner, Searcher, StopReason, Subst, Symbol, Var,
 };
 
 use crate::argparse::Params;
@@ -44,14 +44,25 @@ pub struct ConstantFold;
 impl Analysis<Math> for ConstantFold {
     type Data = Option<i64>;
 
-    fn merge(&self, a: &mut Self::Data, b: Self::Data) -> Option<Ordering> {
+    fn merge(&mut self, a: &mut Self::Data, b: Self::Data) -> DidMerge {
+        // match (a.as_mut(), &b) {
+        //     (None, Some(_)) => {
+        //         *a = b;
+        //         Some(Ordering::Less)
+        //     }
+        //     (Some(_), None) => Some(Ordering::Greater),
+        //     (Some(_), Some(_)) | (None, None) => Some(Ordering::Equal),
+        // }
+
+        // Updated due to egg update
+        // Took semantics from here https://github.com/caviar-trs/egg/blob/a2980794112d3bb38d976550c090c015d28d7bce/src/language.rs#L516
         match (a.as_mut(), &b) {
             (None, Some(_)) => {
                 *a = b;
-                Some(Ordering::Less)
+                DidMerge(true, false)
             }
-            (Some(_), None) => Some(Ordering::Greater),
-            (Some(_), Some(_)) | (None, None) => Some(Ordering::Equal),
+            (Some(_), None) => DidMerge(false, true),
+            (Some(_), Some(_)) | (None, None) => DidMerge(false, false),
         }
         // if a.is_none() && b.is_some() {
         //     *a = b
@@ -59,7 +70,7 @@ impl Analysis<Math> for ConstantFold {
         // cmp
     }
 
-    fn make(egraph: &EGraph, enode: &Math) -> Self::Data {
+    fn make(egraph: &mut EGraph, enode: &Math, _: Id) -> Self::Data {
         let x = |i: &Id| egraph[*i].data.as_ref();
         Some(match enode {
             Math::Constant(c) => *c,
@@ -276,7 +287,7 @@ pub fn simplify(
     let id = runner.egraph.find(*runner.roots.last().unwrap());
 
     // Initiate the extractor
-    let mut extractor = Extractor::new(&runner.egraph, AstSize);
+    let extractor = Extractor::new(&runner.egraph, AstSize);
 
     // Extract the best expression
     let (_, best_expr) = extractor.find_best(id);
@@ -350,7 +361,7 @@ pub fn prove_equiv(
 
     // if it doesn't match we extract the best expression of the first expression
     if matches.is_none() {
-        let mut extractor = Extractor::new(&runner.egraph, AstDepth);
+        let extractor = Extractor::new(&runner.egraph, AstDepth);
         let (_, best_expr) = extractor.find_best(id);
         best_expr_string = Some(best_expr.to_string());
 
@@ -471,7 +482,7 @@ pub fn prove(
         best_expr = Some(goals[proved_goal_index].to_string());
     } else {
         // If we couldn't prove the goal, we extract the best expression.
-        let mut extractor = Extractor::new(&runner.egraph, AstDepth);
+        let extractor = Extractor::new(&runner.egraph, AstDepth);
         let now = Instant::now();
         let (_, best_exprr) = extractor.find_best(id);
         let extraction_time = now.elapsed().as_secs_f32();
@@ -942,8 +953,7 @@ pub fn prove_pulses(
     while !exit {
         if i > 0.0 {
             // Extract the best expression from the egraph.
-            let mut extractor;
-            extractor = Extractor::new(&(runner.egraph), AstDepth);
+            let extractor = Extractor::new(&(runner.egraph), AstDepth);
 
             // Calculate the extraction time.
             let now = Instant::now();
@@ -1009,7 +1019,7 @@ pub fn prove_pulses(
         best_expr = Some(goals[proved_goal_index].to_string());
     } else {
         // If we didn't prove anything, then we return the best expression.
-        let mut extractor = Extractor::new(&runner.egraph, AstDepth);
+        let extractor = Extractor::new(&runner.egraph, AstDepth);
         let now = Instant::now();
         let (_, best_exprr) = extractor.find_best(id);
         let extraction_time = now.elapsed().as_secs_f32();
@@ -1147,8 +1157,7 @@ pub fn prove_pulses_npp(
         // Extract the best expression and reinitialize the runner if it's not the first pulse
         if i > 0.0 {
             // Extract the best expression and calculate the extraction time.
-            let mut extractor;
-            extractor = Extractor::new(&((runner).egraph), AstDepth);
+            let extractor = Extractor::new(&((runner).egraph), AstDepth);
             let now = Instant::now();
             let (_, best_exprr) = extractor.find_best(id);
             let extraction_time = now.elapsed().as_secs_f64();
@@ -1225,7 +1234,7 @@ pub fn prove_pulses_npp(
         best_expr = Some(goals[proved_goal_index].to_string());
     } else {
         // Extract the best expression and calculate the extraction time if we can't prove.
-        let mut extractor = Extractor::new(&runner.egraph, AstDepth);
+        let extractor = Extractor::new(&runner.egraph, AstDepth);
         let now = Instant::now();
         let (_, best_exprr) = extractor.find_best(id);
         let extraction_time = now.elapsed().as_secs_f32();
@@ -1342,7 +1351,7 @@ pub fn prove_npp(
         best_expr = Some(goals[proved_goal_index].to_string());
     } else {
         // If no goal was proved, then we need to extract the best expression
-        let mut extractor = Extractor::new(&runner.egraph, AstDepth);
+        let extractor = Extractor::new(&runner.egraph, AstDepth);
         let now = Instant::now();
         let (_, best_exprr) = extractor.find_best(id);
 
