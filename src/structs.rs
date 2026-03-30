@@ -1,10 +1,6 @@
-use std::usize;
-
 use serde::Serialize;
 
 #[derive(Serialize, Debug)]
-/// The `structs` module contains a number of useful structs.
-
 /// The `ResultStructure` type is used to represent the result of proving or simplifying an expression
 pub struct ResultStructure {
     // Index of the expression set to make debugging easier

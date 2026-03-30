@@ -332,7 +332,7 @@ pub fn prove_equiv(
             .with_node_limit(params.1)
             .with_time_limit(Duration::from_secs_f64(params.2))
             .with_expr(&start)
-            .run_check_iteration(rules(ruleset_class).iter(), &[end.clone()])
+            .run_check_iteration(rules(ruleset_class).iter(), std::slice::from_ref(&end))
     } else {
         // Initialize a simple runner and run it.
         Runner::default()

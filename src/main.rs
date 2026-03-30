@@ -190,7 +190,7 @@ fn simplify_expressions(
 
 fn prove(params: &Params, prove_params: &ProveParams, strategy: &ProveStrategy) {
     match strategy {
-        ProveStrategy::Simple {} => {
+        ProveStrategy::Simple => {
             let expression_vect = read_expressions(&params.expressions_file).unwrap();
             let results = prove_expressions(
                 &expression_vect,
