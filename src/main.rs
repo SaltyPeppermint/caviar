@@ -212,7 +212,7 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: &ProveStrategy) 
                 prove_params.use_iteration_check,
                 prove_params.report,
             );
-            writer::write_results(&format!("tmp/results_beh_{threshold}.csv"), &results).unwrap();
+            writer::write_results(&format!("tmp/results_pulse_{threshold}.csv"), &results).unwrap();
         }
         ProveStrategy::Npp => {
             let expression_vect = read_expressions(&params.expressions_file).unwrap();
