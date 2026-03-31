@@ -28,7 +28,8 @@ pub struct ResultStructure {
     // The condition of the rule
     condition: Option<String>,
     // Halide Data for the expression
-    halide_data: Option<HalideData>,
+    halide_result: Option<String>,
+    halide_time: Option<f64>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -61,7 +62,8 @@ impl ResultStructure {
             total_time,
             stop_reason,
             condition,
-            halide_data: None,
+            halide_result: None,
+            halide_time: None,
         }
     }
     /// Adds index and the condition to the result
@@ -72,7 +74,10 @@ impl ResultStructure {
 
     /// Adds Halide Data to the result
     pub fn add_halide(&mut self, halide_data: Option<HalideData>) {
-        self.halide_data = halide_data;
+        if let Some(h) = halide_data {
+            self.halide_result = Some(h.halide_result);
+            self.halide_time = Some(h.halide_time);
+        }
     }
 }
 
