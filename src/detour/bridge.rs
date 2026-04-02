@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use colored::Colorize;
 use egg::{AstDepth, EGraph, Extractor, Pattern, RecExpr, Searcher, StopReason};
+use rayon::prelude::*;
 
 // const OFFSET: usize = 3; // AUTOTUNE THIS
 const UNREACHABLE_COST: u128 = 10_000_000; // AUTOTUNE THIS
@@ -19,24 +20,23 @@ pub fn prove_expression_detour(
     offset: usize,
     report: bool,
 ) -> Vec<ResultStructure> {
-    // Initialize the results vector.
-    let mut results = Vec::new();
-
     // For each expression try to prove it using Caviar with NPP then push the results into the results vector.
-    for expression in exprs_vect {
-        println!("Starting Expression: {}", expression.index);
-        let mut res = detour_prove(
-            expression.index,
-            &expression.expression,
-            ruleset_class,
-            params,
-            report,
-            offset,
-        );
-        res.add_halide(expression.halide_data.clone());
-        results.push(res);
-    }
-    results
+    exprs_vect
+        .par_iter()
+        .map(|expression| {
+            println!("Starting Expression: {}", expression.index);
+            let mut res = detour_prove(
+                expression.index,
+                &expression.expression,
+                ruleset_class,
+                params,
+                report,
+                offset,
+            );
+            res.add_halide(expression.halide_data.clone());
+            res
+        })
+        .collect()
 }
 
 // NOT USING THE ILC CHECK SINCE IT IS INCOMPATIBLE?
