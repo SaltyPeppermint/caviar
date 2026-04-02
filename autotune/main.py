@@ -12,6 +12,7 @@ import polars as pl
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern
 from scipy.stats import norm
+from tqdm import tqdm
 
 
 # Root of the caviar repo (the directory that contains the binary and data).
@@ -74,7 +75,7 @@ def run_caviar(params: dict[str, int], out_path: str) -> int:
     ]
     for name, value in params.items():
         cmd += [f"--{name}", str(value)]
-    subprocess.run(cmd, check=True, cwd=CAVIAR_ROOT)
+    subprocess.run(cmd, check=True, cwd=CAVIAR_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return _count_solved(out_path)
 
 
@@ -126,6 +127,9 @@ def suggest_next(
 
 
 def optimise() -> None:
+    from datetime import datetime
+    start = datetime.now()
+    print(f"Start: {start:%Y-%m-%d %H:%M:%S}")
     keys = list(PARAMS.keys())
     rng = np.random.default_rng(RNG_SEED)
     tried: set[tuple[int, ...]] = set()
@@ -166,7 +170,7 @@ def optimise() -> None:
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        for iteration in range(1, N_BO_ITERATIONS + 1):
+        for iteration in tqdm(range(1, N_BO_ITERATIONS + 1), desc="BO iterations"):
             # Choose next candidate
             if iteration <= random_remaining or len(X_obs) < 2:
                 while True:
@@ -207,7 +211,9 @@ def optimise() -> None:
     best_params = dict(zip(keys, [int(X_obs[best_idx][i]) for i in range(len(keys))]))
     best_solved = int(y_obs[best_idx])
 
-    print(f"\nBest: {best_params}  solved={best_solved}")
+    end = datetime.now()
+    print(f"\nStart: {start:%Y-%m-%d %H:%M:%S}  End: {end:%Y-%m-%d %H:%M:%S}  Duration: {end - start}")
+    print(f"Best: {best_params}  solved={best_solved}")
     print("\nFull results (sorted by solved desc):")
     rows = sorted(zip(X_obs, y_obs), key=lambda t: -t[1])
     for x, y in rows:
