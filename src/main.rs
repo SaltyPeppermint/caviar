@@ -200,7 +200,11 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: &ProveStrategy) 
                 prove_params.use_iteration_check,
                 prove_params.report,
             );
-            writer::write_results("tmp/results_prove.csv", &results).unwrap();
+            let out_path = params
+                .out_path
+                .as_deref()
+                .unwrap_or("tmp/results_prove.csv");
+            writer::write_results(out_path, &results).unwrap();
         }
         ProveStrategy::Pulse { threshold } => {
             let expression_vect = read_expressions(&params.expressions_file).unwrap();
@@ -212,7 +216,11 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: &ProveStrategy) 
                 prove_params.use_iteration_check,
                 prove_params.report,
             );
-            writer::write_results(&format!("tmp/results_pulse_{threshold}.csv"), &results).unwrap();
+            let out_path = params
+                .out_path
+                .clone()
+                .unwrap_or(format!("tmp/results_pulse_{threshold}.csv"));
+            writer::write_results(&out_path, &results).unwrap();
         }
         ProveStrategy::Npp => {
             let expression_vect = read_expressions(&params.expressions_file).unwrap();
@@ -223,7 +231,8 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: &ProveStrategy) 
                 prove_params.use_iteration_check,
                 prove_params.report,
             );
-            writer::write_results("tmp/results_fast.csv", &results).unwrap();
+            let out_path = params.out_path.as_deref().unwrap_or("tmp/results_fast.csv");
+            writer::write_results(out_path, &results).unwrap();
         }
         ProveStrategy::PulseNpp { threshold } => {
             let expression_vect = read_expressions(&params.expressions_file).unwrap();
@@ -235,8 +244,11 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: &ProveStrategy) 
                 prove_params.use_iteration_check,
                 prove_params.report,
             );
-            writer::write_results(&format!("tmp/results_beh_npp_{threshold}.csv"), &results)
-                .unwrap();
+            let out_path = params
+                .out_path
+                .clone()
+                .unwrap_or(format!("tmp/results_beh_npp_{threshold}.csv"));
+            writer::write_results(&out_path, &results).unwrap();
         }
         ProveStrategy::Detour { offset } => {
             let expression_vect = read_expressions(&params.expressions_file).unwrap();
@@ -248,7 +260,11 @@ fn prove(params: &Params, prove_params: &ProveParams, strategy: &ProveStrategy) 
                 *offset,
                 prove_params.report,
             );
-            writer::write_results(&format!("tmp/detour_offset_{offset}.csv"), &results).unwrap();
+            let out_path = params
+                .out_path
+                .clone()
+                .unwrap_or(format!("tmp/detour_offset_{offset}.csv"));
+            writer::write_results(&out_path, &results).unwrap();
         }
     }
 }

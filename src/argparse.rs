@@ -28,6 +28,9 @@ pub struct Params {
 
     #[arg(short, long, default_value_t = 3.0)]
     pub time: f64,
+
+    #[arg(long)]
+    pub out_path: Option<String>,
 }
 /// Parameters shared by all prove subcommands
 #[derive(Args, Debug)]
